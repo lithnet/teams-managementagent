@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:netfx="http://schemas.microsoft.com/wix/NetFxExtension">
+  <Product Id="*"
+           Name="Lithnet Microsoft Teams Management Agent"
+           Language="1033"
+           Version="!(bind.FileVersion.fil1e176f25f77741718801b71ba9e4aff6)"
+           Manufacturer="Lithnet"
+           UpgradeCode="bad7b3eb97f0498485f3c7c78c52ce2a" >
+
+    <Package  InstallerVersion="200"
+              Compressed="yes"
+              InstallScope="perMachine"
+              InstallPrivileges="elevated"
+              Manufacturer="Lithnet" Platform="x64" />
+    <Media Id="1" Cabinet="Cab1.cab" EmbedCab="yes" />
+    <MajorUpgrade Schedule="afterInstallExecute" DowngradeErrorMessage="A later version of [ProductName] is already installed"  AllowSameVersionUpgrades="yes"/>
+
+    <!-- Prerequisites -->
+
+    <PropertyRef Id="WIX_IS_NETFRAMEWORK_45_OR_LATER_INSTALLED" />
+
+    <Condition Message="This application requires .NET Framework 4.5. Please install the .NET Framework then run this installer again">
+      <![CDATA[Installed OR WIX_IS_NETFRAMEWORK_45_OR_LATER_INSTALLED]]>
+    </Condition>
+
+    <Property Id="FIMINSTALLDIR" Secure="yes">
+      <RegistrySearch Id="FimInstallDirFromRegistry" Root="HKLM" Key="SYSTEM\CurrentControlSet\services\FIMSynchronizationService\Parameters" Name="Path" Type="directory" />
+    </Property>
+
+    <Property Id="SYNCVERSION" Secure="yes">
+      <DirectorySearch Id="MiiserverVersion" Path="[FIMINSTALLDIR]">
+        <DirectorySearch Id="binFolder" AssignToProperty="no" Path="bin">
+          <FileSearch Name="miiserver.exe" MinVersion="4.1.3441.0" />
+        </DirectorySearch>
+      </DirectorySearch>
+    </Property>
+
+    <Condition Message="This application requires Microsoft Forefront Identity Manager 2010 R2 4.1.3441 or later to be installed">
+      <![CDATA[Installed OR SYNCVERSION]]>
+    </Condition>
+
+    <UI>
+      <UIRef Id="WixUI_Common" />
+      <Property Id="WixUI_Mode" Value="Custom" />
+
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="9" Bold="yes" />
+      <TextStyle Id="WixUI_Font_Title"  FaceName="Tahoma" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="UserExit" />
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="EndDialog" Value="Return" Order="2"></Publish>
+
+    </UI>
+    <!-- Installation Paths -->
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="FIMINSTALLDIR" ComponentGuidGenerationSeed="69347569874145f581db71b63e5ed160">
+        <Directory Id="FIMEXTENSIONS" Name="Extensions" />
+        <Directory Id="FIMUISHELL" Name="UIShell">
+          <Directory Id="FIMXMLS" Name="XMLs">
+            <Directory Id="PACKAGEDMAS" Name="PackagedMAs" />
+          </Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <!-- Features -->
+
+    <Feature Id="Ecma" Title="Lithnet Microsoft Teams MA" Level="1">
+      <ComponentGroupRef Id="ManagementAgent" />
+      <ComponentGroupRef Id="PackagedMA" />
+    </Feature>
+
+    <ComponentGroup Id="ManagementAgent" Directory="FIMEXTENSIONS">
+      <Component Id="cmpd38868c0bc0b4ddc95620092b3180fee" Guid="*">
+        <File Id="fil1e176f25f77741718801b71ba9e4aff6" KeyPath="yes" Source="$(var.Lithnet.MicrosoftTeams.ManagementAgent.TargetDir)Lithnet.MicrosoftTeams.ManagementAgent.dll" />
+      </Component>
+      <Component Id="cmp0925c367c282486689dcee98ce632bea" Guid="*">
+        <File Id="fil012028f354894be0a63c8471aa7ae331" KeyPath="yes" Source="$(var.Lithnet.MicrosoftTeams.ManagementAgent.TargetDir)Lithnet.MicrosoftTeams.ManagementAgent.pdb" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="PackagedMA" Directory="PACKAGEDMAS">
+      <Component Id="cmp2b2cbb4db61b430db420a668cdc0aa22" Guid="*">
+        <RemoveFile Id ="rmv12e5eacd7ee54ad1a345351ee161bb4d" Name="Lithnet.MicrosoftTeams.ManagementAgent.PackagedMA.xml" On="install"/>
+        <File Id="fil195437cde13145cc8add787ff6b05e1f" KeyPath="yes"  Source="$(var.Lithnet.MicrosoftTeams.ManagementAgent.ProjectDir)Lithnet.MicrosoftTeams.ManagementAgent.PackagedMA.xml" />
+      </Component>
+    </ComponentGroup>
+  </Product>
+</Wix>
