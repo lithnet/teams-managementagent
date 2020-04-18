@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Net.Http;
+using System.Threading.Tasks;
 using Lithnet.Ecma2Framework;
 using Lithnet.MetadirectoryServices;
 using Microsoft.Graph;
@@ -20,7 +22,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         internal static GraphConnectionContext GetConnectionContext(KeyedCollection<string, ConfigParameter> configParameters)
         {
-            logger.Info($"Setting up connection to {configParameters[ConfigParameterNames.TenantDomain].Value}");
+            GraphConnectionContext.logger.Info($"Setting up connection to {configParameters[ConfigParameterNames.TenantDomain].Value}");
 
             System.Net.ServicePointManager.DefaultConnectionLimit = MicrosoftTeamsMAConfigSection.Configuration.ConnectionLimit;
             GlobalSettings.ExportThreadCount = MicrosoftTeamsMAConfigSection.Configuration.ExportThreads;

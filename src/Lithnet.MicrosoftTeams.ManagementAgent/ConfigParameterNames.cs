@@ -14,5 +14,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         internal static readonly string Secret  = "Secret";
 
         internal static readonly string TenantDomain = "Tenant Domain";
+
+        internal static readonly string FilterQuery = "Teams query filter";
+
     }
 }

@@ -116,15 +116,29 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         {
                             c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, group.DisplayName));
                         }
+                        break;
 
+                    case "description":
+                        if (!string.IsNullOrWhiteSpace(group.Description))
+                        {
+                            c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, group.Description));
+                        }
                         break;
 
                     case "id":
                         c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, group.Id));
                         break;
 
+                    case "mailNickname":
+                        if (!string.IsNullOrWhiteSpace(group.MailNickname))
+                        {
+                            c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, group.MailNickname));
+                        }
+
+                        break;
+
                     case "member":
-                        List<DirectoryObject> members = await this.GetMembers(client.Groups[group.Id].Members);
+                        List<DirectoryObject> members = await GraphHelper.GetGroupMembers(client, group.Id);
                         if (members.Count > 0)
                         {
                             c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, members.Select(t => t.Id).ToList<object>()));
@@ -133,7 +147,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         break;
 
                     case "owner":
-                        List<DirectoryObject> owners = await this.GetMembers(client.Groups[group.Id].Owners);
+                        List<DirectoryObject> owners = await GraphHelper.GetGroupOwners(client, group.Id);
 
                         if (owners.Count > 0)
                         {
@@ -153,70 +167,28 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private async Task<IGraphServiceGroupsCollectionPage> GetGroupEnumerable(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)
         {
+            string filter = "resourceProvisioningOptions/Any(x:x eq 'Team')";
+
+            if (!string.IsNullOrWhiteSpace(context.ConfigParameters[ConfigParameterNames.FilterQuery].Value))
+            {
+                filter += $" and {context.ConfigParameters[ConfigParameterNames.FilterQuery].Value}";
+            }
+
+            logger.Trace($"Enumerating groups with filter {filter}");
+
             return await client.Groups.Request()
                 .Select(e => new
                 {
                     e.DisplayName,
                     e.Id,
                     e.ResourceProvisioningOptions,
+                    e.MailNickname,
+                    e.Description,
                 })
-                .Filter("resourceProvisioningOptions/Any(x:x eq 'Team')")
+                .Filter(filter)
                 .GetAsync(context.CancellationTokenSource.Token);
         }
 
-        private async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesRequestBuilder builder)
-        {
-            IGroupMembersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
-                .GetAsync();
-
-            return await this.GetMembers(page);
-        }
-
-        private async Task<List<DirectoryObject>> GetMembers(IGroupOwnersCollectionWithReferencesRequestBuilder builder)
-        {
-            IGroupOwnersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
-                .GetAsync();
-
-            return await this.GetMembers(page);
-        }
-
-        private async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesPage page)
-        {
-            List<DirectoryObject> members = new List<DirectoryObject>();
-
-            if (page?.Count > 0)
-            {
-                members.AddRange(page.CurrentPage);
-
-                while (page.NextPageRequest != null)
-                {
-                    page = await page.NextPageRequest.GetAsync();
-
-                    members.AddRange(page.CurrentPage);
-                }
-            }
-
-            return members;
-        }
-
-        private async Task<List<DirectoryObject>> GetMembers(IGroupOwnersCollectionWithReferencesPage page)
-        {
-            List<DirectoryObject> members = new List<DirectoryObject>();
-
-            if (page?.Count > 0)
-            {
-                members.AddRange(page.CurrentPage);
-
-                while (page.NextPageRequest != null)
-                {
-                    page = await page.NextPageRequest.GetAsync();
-
-                    members.AddRange(page.CurrentPage);
-                }
-            }
-
-            return members;
-        }
 
         private async Task TeamToCSEntryChange(bool inDelta, SchemaType schemaType, Group group, ImportContext context, CSEntryChange c)
         {

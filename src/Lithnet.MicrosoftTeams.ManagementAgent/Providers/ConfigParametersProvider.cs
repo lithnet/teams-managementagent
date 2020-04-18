@@ -21,7 +21,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     break;
 
                 case ConfigParameterPage.Global:
-                    
+                    configParametersDefinitions.Add(ConfigParameterDefinition.CreateStringParameter(ConfigParameterNames.FilterQuery, string.Empty));
                     break;
 
                 case ConfigParameterPage.Partition:
