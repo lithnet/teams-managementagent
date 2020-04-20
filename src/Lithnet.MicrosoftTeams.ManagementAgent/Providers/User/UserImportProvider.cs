@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Lithnet.Ecma2Framework;
 using Lithnet.MetadirectoryServices;
@@ -13,14 +14,9 @@ using Logger = NLog.Logger;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
-    internal class UserImportProvider : IObjectImportProvider
+    internal class UserImportProvider : IObjectImportProviderAsync
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
-
-        public void GetCSEntryChanges(ImportContext context, SchemaType type)
-        {
-            AsyncHelper.RunSync(this.GetCSEntryChangesAsync(context, type), context.CancellationTokenSource.Token);
-        }
 
         public async Task GetCSEntryChangesAsync(ImportContext context, SchemaType type)
         {
@@ -32,19 +28,19 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 Task consumer = this.ConsumeObjects(context, type, queue);
 
                 // Post source data to the dataflow block.
-                await this.ProduceObjects(users, queue).ConfigureAwait(false);
+                await this.ProduceObjects(users, queue, context.CancellationTokenSource.Token).ConfigureAwait(false);
 
                 // Wait for the consumer to process all data.
                 await consumer.ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "There was an error importing the user data");
+                UserImportProvider.logger.Error(ex, "There was an error importing the user data");
                 throw;
             }
         }
 
-        private async Task ProduceObjects(IGraphServiceUsersCollectionPage page, ITargetBlock<User> target)
+        private async Task ProduceObjects(IGraphServiceUsersCollectionPage page, ITargetBlock<User> target, CancellationToken token)
         {
             foreach (User user in page.CurrentPage)
             {
@@ -53,7 +49,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             while (page.NextPageRequest != null)
             {
-                page = await page.NextPageRequest.GetAsync();
+                page = await page.NextPageRequest.GetAsync(token);
 
                 foreach (User user in page.CurrentPage)
                 {
@@ -66,13 +62,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private async Task ConsumeObjects(ImportContext context, SchemaType type, ISourceBlock<User> source)
         {
-            while (await source.OutputAvailableAsync())
+            while (await source.OutputAvailableAsync(context.CancellationTokenSource.Token))
             {
                 User user = source.Receive();
 
                 try
                 {
-                    CSEntryChange c = await this.UserToCSEntryChange(context.InDelta, type, user, context).ConfigureAwait(false);
+                    CSEntryChange c = this.UserToCSEntryChange(context.InDelta, type, user, context);
 
                     if (c != null)
                     {
@@ -94,9 +90,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task<CSEntryChange> UserToCSEntryChange(bool inDelta, SchemaType schemaType, User user, ImportContext context)
+        private CSEntryChange UserToCSEntryChange(bool inDelta, SchemaType schemaType, User user, ImportContext context)
         {
-            logger.Trace($"Creating CSEntryChange for {user.Id}/{user.OnPremisesSamAccountName}");
+            UserImportProvider.logger.Trace($"Creating CSEntryChange for {user.Id}/{user.OnPremisesSamAccountName}");
 
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "user";

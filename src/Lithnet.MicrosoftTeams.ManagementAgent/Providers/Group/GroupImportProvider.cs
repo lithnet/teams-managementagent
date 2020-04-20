@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Lithnet.Ecma2Framework;
@@ -13,13 +14,13 @@ using NLog;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
-    internal class GroupImportProvider : IObjectImportProvider
+    internal class GroupImportProvider : IObjectImportProviderAsync
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        public void GetCSEntryChanges(ImportContext context, SchemaType type)
+        public async Task GetCSEntryChanges(ImportContext context, SchemaType type)
         {
-            AsyncHelper.RunSync(this.GetCSEntryChangesAsync(context, type), context.CancellationTokenSource.Token);
+            await this.GetCSEntryChangesAsync(context, type).ConfigureAwait(false);
         }
 
         public async Task GetCSEntryChangesAsync(ImportContext context, SchemaType type)
@@ -32,19 +33,19 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 Task consumer = this.ConsumeObjects(context, type, queue);
 
                 // Post source data to the dataflow block.
-                await this.ProduceObjects(groups, queue).ConfigureAwait(false);
+                await this.ProduceObjects(groups, queue, context.CancellationTokenSource.Token).ConfigureAwait(false);
 
                 // Wait for the consumer to process all data.
                 await consumer.ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "There was an error importing the group data");
+                GroupImportProvider.logger.Error(ex, "There was an error importing the group data");
                 throw;
             }
         }
 
-        private async Task ProduceObjects(IGraphServiceGroupsCollectionPage page, ITargetBlock<Group> target)
+        private async Task ProduceObjects(IGraphServiceGroupsCollectionPage page, ITargetBlock<Group> target, CancellationToken cancellationToken)
         {
             foreach (Group group in page.CurrentPage)
             {
@@ -53,7 +54,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             while (page.NextPageRequest != null)
             {
-                page = await page.NextPageRequest.GetAsync();
+                page = await page.NextPageRequest.GetAsync(cancellationToken);
 
                 foreach (Group group in page.CurrentPage)
                 {
@@ -66,7 +67,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private async Task ConsumeObjects(ImportContext context, SchemaType type, ISourceBlock<Group> source)
         {
-            while (await source.OutputAvailableAsync())
+            while (await source.OutputAvailableAsync(context.CancellationTokenSource.Token))
             {
                 Group group = source.Receive();
 
@@ -82,7 +83,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 }
                 catch (Exception ex)
                 {
-                    logger.Error(ex);
+                    GroupImportProvider.logger.Error(ex);
                     CSEntryChange csentry = CSEntryChange.Create();
                     csentry.DN = group.Id;
                     csentry.ErrorCodeImport = MAImportError.ImportErrorCustomContinueRun;
@@ -97,7 +98,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private async Task<CSEntryChange> GroupToCSEntryChange(bool inDelta, SchemaType schemaType, Group group, ImportContext context)
         {
-            logger.Trace($"Creating CSEntryChange for {group.Id}/{group.DisplayName}");
+            GroupImportProvider.logger.Trace($"Creating CSEntryChange for {group.Id}/{group.DisplayName}");
 
             GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
 
@@ -174,7 +175,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 filter += $" and {context.ConfigParameters[ConfigParameterNames.FilterQuery].Value}";
             }
 
-            logger.Trace($"Enumerating groups with filter {filter}");
+            GroupImportProvider.logger.Trace($"Enumerating groups with filter {filter}");
 
             return await client.Groups.Request()
                 .Select(e => new

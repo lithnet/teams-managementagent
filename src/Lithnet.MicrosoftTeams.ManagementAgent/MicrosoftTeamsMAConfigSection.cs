@@ -16,7 +16,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         internal static MicrosoftTeamsMAConfigSection GetConfiguration()
         {
-            MicrosoftTeamsMAConfigSection section = (MicrosoftTeamsMAConfigSection)ConfigurationManager.GetSection(SectionName);
+            MicrosoftTeamsMAConfigSection section = (MicrosoftTeamsMAConfigSection)ConfigurationManager.GetSection(MicrosoftTeamsMAConfigSection.SectionName);
 
             if (section == null)
             {
@@ -39,7 +39,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropProxyUrl, IsRequired = false, DefaultValue = null)]
         public string ProxyUrl => (string)this[MicrosoftTeamsMAConfigSection.PropProxyUrl];
 
-        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropExportThreads, IsRequired = false, DefaultValue = 30)]
+        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropExportThreads, IsRequired = false, DefaultValue = 1)]
         public int ExportThreads => (int)this[MicrosoftTeamsMAConfigSection.PropExportThreads];
 
         [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropImportThreads, IsRequired = false, DefaultValue = 10)]

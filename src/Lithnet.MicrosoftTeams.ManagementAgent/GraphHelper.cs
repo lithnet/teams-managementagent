@@ -15,7 +15,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 .Request()
                 .GetAsync();
 
-            return await GetMembers(result);
+            return await GraphHelper.GetMembers(result);
         }
 
         internal static async Task<List<DirectoryObject>> GetGroupOwners(GraphServiceClient client, string groupid)
@@ -24,7 +24,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 .Request()
                 .GetAsync();
 
-            return await GetMembers(result);
+            return await GraphHelper.GetMembers(result);
         }
 
         internal static async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesRequestBuilder builder)
@@ -32,7 +32,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             IGroupMembersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
                 .GetAsync();
 
-            return await GetMembers(page);
+            return await GraphHelper.GetMembers(page);
         }
 
         internal static async Task<List<DirectoryObject>> GetMembers(IGroupOwnersCollectionWithReferencesRequestBuilder builder)
@@ -40,7 +40,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             IGroupOwnersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
                 .GetAsync();
 
-            return await GetMembers(page);
+            return await GraphHelper.GetMembers(page);
         }
 
         internal static async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesPage page)
