@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,8 +19,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
         private const int MaxReferencesPerCreateRequest = 20;
-
-        private const int MaxJsonBatchRequests = 20;
 
         public bool CanExport(CSEntryChange csentry)
         {
@@ -56,7 +55,21 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
 
-            await client.Groups[csentry.DN].Request().DeleteAsync();
+            try
+            {
+                await client.Groups[csentry.DN].Request().DeleteAsync();
+            }
+            catch (ServiceException ex)
+            {
+                if (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    logger.Warn($"The request to delete the group {csentry.DN} failed because the group doesn't exist");
+                }
+                else
+                {
+                    throw;
+                }
+            }
 
             return CSEntryChangeResult.Create(csentry.Identifier, null, MAExportError.Success);
         }
@@ -70,7 +83,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             try
             {
                 result = await this.CreateGroup(csentry, context, client);
-                await this.CreateTeam(csentry, client, result.Id);
+                await this.CreateTeam(csentry, client, result.Id, context);
             }
             catch (Exception ex)
             {
@@ -94,7 +107,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return CSEntryChangeResult.Create(csentry.Identifier, anchorChanges, MAExportError.Success);
         }
 
-        private async Task CreateTeam(CSEntryChange csentry, GraphServiceClient client, string groupId)
+        private async Task CreateTeam(CSEntryChange csentry, GraphServiceClient client, string groupId, ExportContext context)
         {
             Team team = new Team
             {
@@ -148,9 +161,28 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             GroupExportProvider.logger.Info($"Creating team for group {groupId} using template {template ?? "standard"}");
             GroupExportProvider.logger.Trace($"Team data: {JsonConvert.SerializeObject(team)}");
 
-            Team tresult = await client.Groups[groupId].Team
-                .Request()
-                .PutAsync(team);
+            Team tresult;
+
+            try
+            {
+                 tresult = await client.Groups[groupId].Team
+                    .Request()
+                    .PutAsync(team);
+            }
+            catch (ServiceException ex)
+            {
+                if (ex.StatusCode == HttpStatusCode.NotFound)
+                {
+                    await Task.Delay(5000, context.CancellationTokenSource.Token);
+                    tresult = await client.Groups[groupId].Team
+                        .Request()
+                        .PutAsync(team);
+                }
+                else
+                {
+                    throw;
+                }
+            }
 
             GroupExportProvider.logger.Info($"Created team {tresult.Id} for group {groupId}");
         }
@@ -166,6 +198,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             group.SecurityEnabled = false;
             group.AdditionalData = new Dictionary<string, object>();
             group.Id = csentry.DN;
+            group.Visibility = csentry.GetValueAdd<string>("visibility");
 
             IList<string> members = csentry.GetValueAdds<string>("member") ?? new List<string>();
             IList<string> owners = csentry.GetValueAdds<string>("owner") ?? new List<string>();
@@ -225,13 +258,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             if (deferredMembers.Count > 0)
             {
                 GroupExportProvider.logger.Trace($"Processing {deferredMembers.Count} deferred members");
-                await this.AddMembers(client, result.Id, deferredMembers, context.CancellationTokenSource.Token);
+                await GraphHelper.AddGroupMembers(client, result.Id, deferredMembers, false, context.CancellationTokenSource.Token);
             }
 
             if (deferredOwners.Count > 0)
             {
                 GroupExportProvider.logger.Trace($"Processing {deferredOwners.Count} deferred owners");
-                await this.AddOwners(client, result.Id, deferredOwners, context.CancellationTokenSource.Token);
+                await GraphHelper.AddGroupOwners(client, result.Id, deferredOwners, false, context.CancellationTokenSource.Token);
             }
 
             GroupExportProvider.logger.Info($"Created group {group.Id}");
@@ -276,6 +309,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 if (change.Name == "template")
                 {
                     throw new UnexpectedDataException("The template parameter can only be supplied during an 'add' operation");
+                }
+                else if (change.Name == "isArchived")
+                {
+                    team.IsArchived = change.GetValueAdd<bool>();
                 }
                 else if (change.Name == "memberSettings_allowCreateUpdateChannels")
                 {
@@ -393,7 +430,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     continue;
                 }
 
-                if (change.Name == "displayName")
+                if (change.Name == "visibility")
+                {
+                    throw new UnexpectedDataException("The visibility parameter can only be supplied during an 'add' operation");
+                }
+                else if (change.Name == "displayName")
                 {
                     group.DisplayName = change.GetValueAdd<string>();
                 }
@@ -436,200 +477,28 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 if (change.Name == "member")
                 {
-                    List<DirectoryObject> result = await GraphHelper.GetGroupMembers(client, c.DN);
+                    List<DirectoryObject> result = await GraphHelper.GetGroupMembers(client, c.DN, context.CancellationTokenSource.Token);
                     valueDeletes = result.Select(t => t.Id).ToList();
                 }
                 else
                 {
-                    List<DirectoryObject> result = await GraphHelper.GetGroupOwners(client, c.DN);
+                    List<DirectoryObject> result = await GraphHelper.GetGroupOwners(client, c.DN, context.CancellationTokenSource.Token);
                     valueDeletes = result.Select(t => t.Id).ToList();
                 }
             }
 
             if (change.Name == "member")
             {
-                await this.AddMembers(client, c.DN, valueAdds, context.CancellationTokenSource.Token);
-                await this.RemoveMembers(client, c.DN, valueDeletes, context.CancellationTokenSource.Token);
-                GroupExportProvider.logger.Info($"Membership modification for group {c.DN} completed. Members added: {valueAdds.Count}, members removed: {valueDeletes.Count}");
+                await GraphHelper.AddGroupMembers(client, c.DN, valueAdds, true, context.CancellationTokenSource.Token);
+                await GraphHelper.RemoveGroupMembers(client, c.DN, valueDeletes, true, context.CancellationTokenSource.Token);
+                logger.Info($"Membership modification for group {c.DN} completed. Members added: {valueAdds.Count}, members removed: {valueDeletes.Count}");
             }
             else
             {
-                await this.AddOwners(client, c.DN, valueAdds, context.CancellationTokenSource.Token);
-                await this.RemoveOwners(client, c.DN, valueDeletes, context.CancellationTokenSource.Token);
-                GroupExportProvider.logger.Info($"Owner modification for group {c.DN} completed. Owners added: {valueAdds.Count}, owners removed: {valueDeletes.Count}");
+                await GraphHelper.AddGroupOwners(client, c.DN, valueAdds, true, context.CancellationTokenSource.Token);
+                await GraphHelper.RemoveGroupOwners(client, c.DN, valueDeletes, true, context.CancellationTokenSource.Token);
+                logger.Info($"Owner modification for group {c.DN} completed. Owners added: {valueAdds.Count}, owners removed: {valueDeletes.Count}");
             }
-        }
-
-        private async Task AddMembers(GraphServiceClient client, string groupid, IList<string> members, CancellationToken token)
-        {
-            if (members.Count == 0)
-            {
-                return;
-            }
-
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
-
-            foreach (string member in members)
-            {
-                HttpRequestMessage createEventMessage = new HttpRequestMessage(HttpMethod.Post, client.Groups[groupid].Members.References.Request().RequestUrl);
-                createEventMessage.Content = GroupExportProvider.CreateStringContentForMemberId(member);
-
-                requests.Add(new BatchRequestStep(member, createEventMessage));
-            }
-
-            GroupExportProvider.logger.Trace($"Adding {requests.Count} members in batch request for group {groupid}");
-
-            await this.SubmitAsBatches(client, requests, ValueModificationType.Add, token);
-        }
-
-        private async Task AddOwners(GraphServiceClient client, string groupid, IList<string> members, CancellationToken token)
-        {
-            if (members.Count == 0)
-            {
-                return;
-            }
-
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
-
-            foreach (string member in members)
-            {
-                HttpRequestMessage createEventMessage = new HttpRequestMessage(HttpMethod.Post, client.Groups[groupid].Owners.References.Request().RequestUrl);
-                createEventMessage.Content = GroupExportProvider.CreateStringContentForMemberId(member);
-
-                requests.Add(new BatchRequestStep(member, createEventMessage));
-            }
-
-            GroupExportProvider.logger.Trace($"Adding {requests.Count} owners in batch request for group {groupid}");
-            await this.SubmitAsBatches(client, requests, ValueModificationType.Add, token);
-        }
-
-        private async Task RemoveMembers(GraphServiceClient client, string groupid, IList<string> members, CancellationToken token)
-        {
-            if (members.Count == 0)
-            {
-                return;
-            }
-
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
-
-            foreach (string member in members)
-            {
-                requests.Add(this.GenerateBatchRequestStep(HttpMethod.Delete, member, client.Groups[groupid].Members[member].Reference.Request().RequestUrl));
-            }
-
-            GroupExportProvider.logger.Trace($"Removing {requests.Count} members in batch request for group {groupid}");
-            await this.SubmitAsBatches(client, requests, ValueModificationType.Delete, token);
-        }
-
-        private async Task RemoveOwners(GraphServiceClient client, string groupid, IList<string> members, CancellationToken token)
-        {
-            if (members.Count == 0)
-            {
-                return;
-            }
-
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
-
-            foreach (string member in members)
-            {
-                requests.Add(this.GenerateBatchRequestStep(HttpMethod.Delete, member, client.Groups[groupid].Owners[member].Reference.Request().RequestUrl));
-            }
-
-            GroupExportProvider.logger.Trace($"Removing {requests.Count} owners in batch request for group {groupid}");
-            await this.SubmitAsBatches(client, requests, ValueModificationType.Delete, token);
-        }
-
-        private BatchRequestStep GenerateBatchRequestStep(HttpMethod method, string id, string requestUrl)
-        {
-            HttpRequestMessage request = new HttpRequestMessage(method, requestUrl);
-            return new BatchRequestStep(id, request);
-        }
-
-        private async Task SubmitAsBatches(GraphServiceClient client, List<BatchRequestStep> requests, ValueModificationType mode, CancellationToken token)
-        {
-            BatchRequestContent content = new BatchRequestContent();
-            int count = 0;
-
-            foreach (BatchRequestStep r in requests)
-            {
-                if (count == GroupExportProvider.MaxJsonBatchRequests)
-                {
-                    await this.SubmitBatchContent(client, content, mode, token);
-                    count = 0;
-                    content = new BatchRequestContent();
-                }
-
-                content.AddBatchRequestStep(r);
-                count++;
-            }
-
-            if (count > 0)
-            {
-                await this.SubmitBatchContent(client, content, mode, token);
-            }
-        }
-
-        private async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, ValueModificationType mode, CancellationToken token)
-        {
-            BatchResponseContent response = await client.Batch.Request().PostAsync(content, token);
-
-            List<Exception> exceptions = new List<Exception>();
-
-            foreach (KeyValuePair<string, HttpResponseMessage> r in await response.GetResponsesAsync())
-            {
-                if (!r.Value.IsSuccessStatusCode)
-                {
-                    if (mode == ValueModificationType.Delete && r.Value.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        logger.Warn($"The request ({r.Key}) to remove object failed because it did not exist");
-                        continue;
-                    }
-
-                    ErrorResponse er;
-                    try
-                    {
-                        string econtent = await r.Value.Content.ReadAsStringAsync();
-                        logger.Trace(econtent);
-
-                        er = JsonConvert.DeserializeObject<ErrorResponse>(econtent);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Trace(ex, "The error response could not be deserialized");
-                        er = new ErrorResponse
-                        {
-                            Error = new Error
-                            {
-                                Code = r.Value.StatusCode.ToString(),
-                                Message = r.Value.ReasonPhrase
-                            }
-                        };
-                    }
-
-                    if (mode == ValueModificationType.Add && r.Value.StatusCode == System.Net.HttpStatusCode.BadRequest && er.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
-                    {
-                        logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
-                        continue;
-                    }
-                    
-                    exceptions.Add(new ServiceException(er.Error, r.Value.Headers, r.Value.StatusCode));
-
-                }
-            }
-
-            if (exceptions.Count == 1)
-            {
-                throw exceptions[0];
-            }
-            if (exceptions.Count > 1)
-            {
-                throw new AggregateException("Multiple member operations failed", exceptions);
-            }
-        }
-
-        private static StringContent CreateStringContentForMemberId(string member)
-        {
-            return new StringContent("{\"@odata.id\":\"https://graph.microsoft.com/beta/users/" + member + "\"}", System.Text.Encoding.UTF8, "application/json");
         }
 
         private void AssignNullToProperty(string name, Group group)

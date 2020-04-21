@@ -10,10 +10,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        internal static HashSet<string> GroupProperties = new HashSet<string>() { "id", "displayName", "description", "mailNickname", "isArchived" };
-        internal static HashSet<string> GroupMemberProperties = new HashSet<string>() {"member", "owner"};
+        internal static HashSet<string> GroupProperties = new HashSet<string>() { "id", "displayName", "description", "mailNickname", "visiblity" };
+        internal static HashSet<string> GroupMemberProperties = new HashSet<string>() { "member", "owner" };
         internal static HashSet<string> TeamsProperties = new HashSet<string>() {
             "template",
+            "isArchived",
             "memberSettings_allowCreateUpdateChannels",
             "memberSettings_allowDeleteChannels",
             "memberSettings_allowAddRemoveApps",
@@ -77,7 +78,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("mailNickname", AttributeType.String, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
 
-            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("isArchived", AttributeType.Boolean, AttributeOperation.ImportExport);
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("visibility", AttributeType.String, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
 
             // Group member
@@ -87,8 +88,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             mmsAttribute = SchemaAttribute.CreateMultiValuedAttribute("owner", AttributeType.Reference, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
 
-        // Teams
-        mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("template", AttributeType.String, AttributeOperation.ExportOnly);
+            // Teams
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("isArchived", AttributeType.Boolean, AttributeOperation.ImportExport);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("template", AttributeType.String, AttributeOperation.ExportOnly);
             mmsType.Attributes.Add(mmsAttribute);
 
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("memberSettings_allowCreateUpdateChannels", AttributeType.Boolean, AttributeOperation.ImportExport);

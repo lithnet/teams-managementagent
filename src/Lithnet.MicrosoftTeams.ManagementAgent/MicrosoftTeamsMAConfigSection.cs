@@ -39,10 +39,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropProxyUrl, IsRequired = false, DefaultValue = null)]
         public string ProxyUrl => (string)this[MicrosoftTeamsMAConfigSection.PropProxyUrl];
 
-        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropExportThreads, IsRequired = false, DefaultValue = 1)]
+        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropExportThreads, IsRequired = false, DefaultValue = 5)]
         public int ExportThreads => (int)this[MicrosoftTeamsMAConfigSection.PropExportThreads];
 
-        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropImportThreads, IsRequired = false, DefaultValue = 10)]
+        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropImportThreads, IsRequired = false, DefaultValue = 5)]
         public int ImportThreads => (int)this[MicrosoftTeamsMAConfigSection.PropImportThreads];
 
         [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropConnectionLimit, IsRequired = false, DefaultValue = 1000)]
