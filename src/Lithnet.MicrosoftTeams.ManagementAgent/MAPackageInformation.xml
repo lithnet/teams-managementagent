@@ -2,7 +2,7 @@
 <ma-customization-info>
   <ma-internal-version>1</ma-internal-version>
   <ma-companyname>Lithnet</ma-companyname>
-  <ma-subtype>ecma2-framework</ma-subtype>
+  <ma-subtype>Teams</ma-subtype>
   <ma-listname>Microsoft Teams</ma-listname>
   <ma-help-text>Lithnet Microsoft Teams Management Agent</ma-help-text>
 </ma-customization-info>

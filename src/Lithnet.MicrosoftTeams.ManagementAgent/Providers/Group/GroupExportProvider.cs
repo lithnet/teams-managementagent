@@ -125,30 +125,32 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             team.GuestSettings.ODataType = null;
             team.MessagingSettings.ODataType = null;
             team.FunSettings.ODataType = null;
-
+            team.AdditionalData = new Dictionary<string, object>();
 
             string template = csentry.GetValueAdd<string>("template") ?? "https://graph.microsoft.com/beta/teamsTemplates('standard')";
 
-            if (string.IsNullOrWhiteSpace(template))
-            {
-                team.AdditionalData.Add("template@odata.bind", template); //"https://graph.microsoft.com/beta/teamsTemplates('standard')"
-            }
+           // if (!string.IsNullOrWhiteSpace(template))
+           // {
+           //     team.AdditionalData.Add("template@odata.bind", template); //"https://graph.microsoft.com/beta/teamsTemplates('standard')"
+           // }
 
-            team.MemberSettings.AllowCreateUpdateChannels = csentry.GetValueAdd<bool?>("memberSettings_allowCreateUpdateChannels");
-            team.MemberSettings.AllowCreateUpdateChannels = csentry.GetValueAdd<bool?>("memberSettings_allowDeleteChannels");
-            team.MemberSettings.AllowCreateUpdateChannels = csentry.GetValueAdd<bool?>("memberSettings_allowAddRemoveApps");
-            team.MemberSettings.AllowCreateUpdateChannels = csentry.GetValueAdd<bool?>("memberSettings_allowCreateUpdateRemoveTabs");
-            team.MemberSettings.AllowCreateUpdateChannels = csentry.GetValueAdd<bool?>("memberSettings_allowCreateUpdateRemoveConnectors");
-            team.GuestSettings.AllowCreateUpdateChannels = csentry.GetValueAdd<bool?>("guestSettings_allowCreateUpdateChannels");
-            team.GuestSettings.AllowCreateUpdateChannels = csentry.GetValueAdd<bool?>("guestSettings_allowDeleteChannels");
-            team.MessagingSettings.AllowUserEditMessages = csentry.GetValueAdd<bool?>("messagingSettings_allowUserEditMessages");
-            team.MessagingSettings.AllowUserDeleteMessages = csentry.GetValueAdd<bool?>("messagingSettings_allowUserDeleteMessages");
-            team.MessagingSettings.AllowOwnerDeleteMessages = csentry.GetValueAdd<bool?>("messagingSettings_allowOwnerDeleteMessages");
-            team.MessagingSettings.AllowTeamMentions = csentry.GetValueAdd<bool?>("messagingSettings_allowTeamMentions");
-            team.MessagingSettings.AllowChannelMentions = csentry.GetValueAdd<bool?>("messagingSettings_allowChannelMentions");
-            team.FunSettings.AllowGiphy = csentry.GetValueAdd<bool?>("funSettings_allowGiphy");
-            team.FunSettings.AllowStickersAndMemes = csentry.GetValueAdd<bool?>("funSettings_allowStickersAndMemes");
-            team.FunSettings.AllowCustomMemes = csentry.GetValueAdd<bool?>("funSettings_allowCustomMemes");
+            //team.AdditionalData.Add("group@odata.bind", $"https://graph.microsoft.com/v1.0/groups('{groupId}')");
+
+            team.MemberSettings.AllowCreateUpdateChannels = csentry.HasAttributeChange("memberSettings_allowCreateUpdateChannels") ? csentry.GetValueAdd<bool>("memberSettings_allowCreateUpdateChannels") : default(bool?);
+            team.MemberSettings.AllowDeleteChannels = csentry.HasAttributeChange("memberSettings_allowDeleteChannels") ? csentry.GetValueAdd<bool>("memberSettings_allowDeleteChannels") : default(bool?);
+            team.MemberSettings.AllowAddRemoveApps = csentry.HasAttributeChange("memberSettings_allowAddRemoveApps") ? csentry.GetValueAdd<bool>("memberSettings_allowAddRemoveApps") : default(bool?);
+            team.MemberSettings.AllowCreateUpdateRemoveTabs = csentry.HasAttributeChange("memberSettings_allowCreateUpdateRemoveTabs") ? csentry.GetValueAdd<bool>("memberSettings_allowCreateUpdateRemoveTabs") : default(bool?);
+            team.MemberSettings.AllowCreateUpdateRemoveConnectors = csentry.HasAttributeChange("memberSettings_allowCreateUpdateRemoveConnectors") ? csentry.GetValueAdd<bool>("memberSettings_allowCreateUpdateRemoveConnectors") : default(bool?);
+            team.GuestSettings.AllowCreateUpdateChannels = csentry.HasAttributeChange("guestSettings_allowCreateUpdateChannels") ? csentry.GetValueAdd<bool>("guestSettings_allowCreateUpdateChannels") : default(bool?);
+            team.GuestSettings.AllowCreateUpdateChannels = csentry.HasAttributeChange("guestSettings_allowDeleteChannels") ? csentry.GetValueAdd<bool>("guestSettings_allowDeleteChannels") : default(bool?);
+            team.MessagingSettings.AllowUserEditMessages = csentry.HasAttributeChange("messagingSettings_allowUserEditMessages") ? csentry.GetValueAdd<bool>("messagingSettings_allowUserEditMessages") : default(bool?);
+            team.MessagingSettings.AllowUserDeleteMessages = csentry.HasAttributeChange("messagingSettings_allowUserDeleteMessages") ? csentry.GetValueAdd<bool>("messagingSettings_allowUserDeleteMessages") : default(bool?);
+            team.MessagingSettings.AllowOwnerDeleteMessages = csentry.HasAttributeChange("messagingSettings_allowOwnerDeleteMessages") ? csentry.GetValueAdd<bool>("messagingSettings_allowOwnerDeleteMessages") : default(bool?);
+            team.MessagingSettings.AllowTeamMentions = csentry.HasAttributeChange("messagingSettings_allowTeamMentions") ? csentry.GetValueAdd<bool>("messagingSettings_allowTeamMentions") : default(bool?);
+            team.MessagingSettings.AllowChannelMentions = csentry.HasAttributeChange("messagingSettings_allowChannelMentions") ? csentry.GetValueAdd<bool>("messagingSettings_allowChannelMentions") : default(bool?);
+            team.FunSettings.AllowGiphy = csentry.HasAttributeChange("funSettings_allowGiphy") ? csentry.GetValueAdd<bool>("funSettings_allowGiphy") : default(bool?);
+            team.FunSettings.AllowStickersAndMemes = csentry.HasAttributeChange("funSettings_allowStickersAndMemes") ? csentry.GetValueAdd<bool>("funSettings_allowStickersAndMemes") : default(bool?);
+            team.FunSettings.AllowCustomMemes = csentry.HasAttributeChange("funSettings_allowCustomMemes") ? csentry.GetValueAdd<bool>("funSettings_allowCustomMemes") : default(bool?);
 
             string gcr = csentry.GetValueAdd<string>("funSettings_giphyContentRating");
             if (!string.IsNullOrWhiteSpace(gcr))
@@ -165,12 +167,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             GroupExportProvider.logger.Trace($"Team data: {JsonConvert.SerializeObject(team)}");
 
             Team tresult;
-
+            
             try
             {
-                tresult = await client.Groups[groupId].Team
-                   .Request()
-                   .PutAsync(team);
+                //tresult = await client.Teams.Request().AddAsync(team, context.CancellationTokenSource.Token);
+                tresult = await client.Groups[groupId].Team.Request().PutAsync(team);
             }
             catch (ServiceException ex)
             {
@@ -187,7 +188,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 }
             }
 
-            GroupExportProvider.logger.Info($"Created team {tresult.Id} for group {groupId}");
+            GroupExportProvider.logger.Info($"Created team {tresult?.Id} for group {groupId}");
         }
 
         private async Task<Group> CreateGroup(CSEntryChange csentry, ExportContext context, GraphServiceClient client)
