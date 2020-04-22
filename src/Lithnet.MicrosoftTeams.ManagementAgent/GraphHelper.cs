@@ -24,7 +24,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 .Request()
                 .GetAsync(token);
 
-            return await GraphHelper.GetMembers(result);
+            return await GraphHelper.GetMembers(result, token);
         }
 
         internal static async Task<List<DirectoryObject>> GetGroupOwners(GraphServiceClient client, string groupid, CancellationToken token)
@@ -33,26 +33,68 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 .Request()
                 .GetAsync(token);
 
-            return await GraphHelper.GetMembers(result);
+            return await GraphHelper.GetOwners(result, token);
         }
 
-        internal static async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesRequestBuilder builder)
+        internal static async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesRequestBuilder builder, CancellationToken token)
         {
             IGroupMembersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
-                .GetAsync();
+                .GetAsync(token);
 
-            return await GraphHelper.GetMembers(page);
+            return await GraphHelper.GetMembers(page, token);
         }
 
-        internal static async Task<List<DirectoryObject>> GetMembers(IGroupOwnersCollectionWithReferencesRequestBuilder builder)
+        internal static async Task<List<DirectoryObject>> GetOwners(IGroupOwnersCollectionWithReferencesRequestBuilder builder, CancellationToken token)
         {
             IGroupOwnersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
-                .GetAsync();
+                .GetAsync(token);
 
-            return await GraphHelper.GetMembers(page);
+            return await GraphHelper.GetOwners(page, token);
         }
 
-        internal static async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesPage page)
+        internal static async Task<List<Channel>> GetChannels(GraphServiceClient client, string groupid, CancellationToken token)
+        {
+            List<Channel> channels = new List<Channel>();
+
+            var page = await client.Teams[groupid].Channels.Request().GetAsync(token);
+
+            if (page?.Count > 0)
+            {
+                channels.AddRange(page.CurrentPage);
+
+                while (page.NextPageRequest != null)
+                {
+                    page = await page.NextPageRequest.GetAsync(token);
+
+                    channels.AddRange(page.CurrentPage);
+                }
+            }
+
+            return channels;
+        }
+
+        internal static async Task<List<ConversationMember>> GetChannelMembers(GraphServiceClient client, string groupId, string channelId, CancellationToken token)
+        {
+            List<ConversationMember> members = new List<ConversationMember>();
+
+            var page = await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token);
+
+            if (page?.Count > 0)
+            {
+                members.AddRange(page.CurrentPage);
+
+                while (page.NextPageRequest != null)
+                {
+                    page = await page.NextPageRequest.GetAsync(token);
+
+                    members.AddRange(page.CurrentPage);
+                }
+            }
+            
+            return members;
+        }
+
+        internal static async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesPage page, CancellationToken token)
         {
             List<DirectoryObject> members = new List<DirectoryObject>();
 
@@ -62,7 +104,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 while (page.NextPageRequest != null)
                 {
-                    page = await page.NextPageRequest.GetAsync();
+                    page = await page.NextPageRequest.GetAsync(token);
 
                     members.AddRange(page.CurrentPage);
                 }
@@ -71,7 +113,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return members;
         }
 
-        internal static async Task<List<DirectoryObject>> GetMembers(IGroupOwnersCollectionWithReferencesPage page)
+        internal static async Task<List<DirectoryObject>> GetOwners(IGroupOwnersCollectionWithReferencesPage page, CancellationToken token)
         {
             List<DirectoryObject> members = new List<DirectoryObject>();
 
@@ -81,7 +123,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 while (page.NextPageRequest != null)
                 {
-                    page = await page.NextPageRequest.GetAsync();
+                    page = await page.NextPageRequest.GetAsync(token);
 
                     members.AddRange(page.CurrentPage);
                 }
@@ -169,7 +211,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
-
         private static async Task SubmitAsBatches(GraphServiceClient client, List<BatchRequestStep> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
         {
             BatchRequestContent content = new BatchRequestContent();
@@ -193,7 +234,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 await SubmitBatchContent(client, content, ignoreNotFound, ignoreRefAlreadyExists, token);
             }
         }
-
 
         private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
         {

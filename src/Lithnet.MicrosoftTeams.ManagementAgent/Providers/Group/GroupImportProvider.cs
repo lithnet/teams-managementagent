@@ -76,6 +76,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         await this.GroupMemberToCSEntryChange(c, type, context);
                         await this.TeamToCSEntryChange(c, type, context).ConfigureAwait(false);
                         context.ImportItems.Add(c, context.CancellationTokenSource.Token);
+                        await this.CreateChannelCSEntryChanges(group, type, context);
                     }
                 }
                 catch (Exception ex)
@@ -150,7 +151,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return c;
         }
 
-        private async Task<CSEntryChange> GroupMemberToCSEntryChange(CSEntryChange c, SchemaType schemaType, ImportContext context)
+        private async Task GroupMemberToCSEntryChange(CSEntryChange c, SchemaType schemaType, ImportContext context)
         {
             GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
 
@@ -172,16 +173,51 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("owner", owners.Select(t => t.Id).ToList<object>()));
                 }
             }
-
-            return c;
         }
 
-        private async Task<CSEntryChange> TeamToCSEntryChange(CSEntryChange c, SchemaType schemaType, ImportContext context)
+        private async Task CreateChannelCSEntryChanges(Group g, SchemaType schemaType, ImportContext context)
+        {
+            if (!context.Types.Types.Contains("channel"))
+            {
+                return;
+            }
+
+            GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
+
+            var channels = await GraphHelper.GetChannels(client, g.Id, context.CancellationTokenSource.Token);
+
+            foreach (var channel in channels)
+            {
+                var members = await GraphHelper.GetChannelMembers(client, g.Id, channel.Id, context.CancellationTokenSource.Token);
+
+                CSEntryChange c = CSEntryChange.Create();
+                c.ObjectType = "channel";
+                c.ObjectModificationType = ObjectModificationType.Add;
+                c.AnchorAttributes.Add(AnchorAttribute.Create("id", channel.Id));
+                c.DN = channel.Id;
+                
+                c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("displayName", channel.DisplayName));
+
+                if (!string.IsNullOrWhiteSpace(channel.Description))
+                {
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("description", channel.Description));
+                }
+
+                if (members.Count > 0)
+                {
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
+                }
+
+                context.ImportItems.Add(c, context.CancellationTokenSource.Token);
+            }
+        }
+
+        private async Task TeamToCSEntryChange(CSEntryChange c, SchemaType schemaType, ImportContext context)
         {
             GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
 
-            Team team = await client.Teams[c.DN].Request().GetAsync(context.CancellationTokenSource.Token);
-
+            Team  team = await client.Teams[c.DN].Request().GetAsync(context.CancellationTokenSource.Token);
+            
             foreach (SchemaAttribute type in schemaType.Attributes)
             {
                 switch (type.Name)
@@ -259,8 +295,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         break;
                 }
             }
-
-            return c;
         }
 
         private async Task<IGraphServiceGroupsCollectionPage> GetGroupEnumerable(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)

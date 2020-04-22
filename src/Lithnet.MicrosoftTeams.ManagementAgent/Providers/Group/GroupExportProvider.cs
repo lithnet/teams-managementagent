@@ -89,9 +89,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 try
                 {
-                    GroupExportProvider.logger.Error(ex, "An exception occurred while creating the team, rolling back the group by deleting it");
-                    await client.Groups[result?.Id ?? csentry.DN].Request().DeleteAsync();
-                    GroupExportProvider.logger.Info("The group was deleted");
+                    if (result != null)
+                    {
+                        GroupExportProvider.logger.Error(ex, "An exception occurred while creating the team, rolling back the group by deleting it");
+                        await client.Groups[result?.Id].Request().DeleteAsync();
+                        GroupExportProvider.logger.Info("The group was deleted");
+                    }
                 }
                 catch (Exception ex2)
                 {
@@ -165,9 +168,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             try
             {
-                 tresult = await client.Groups[groupId].Team
-                    .Request()
-                    .PutAsync(team);
+                tresult = await client.Groups[groupId].Team
+                   .Request()
+                   .PutAsync(team);
             }
             catch (ServiceException ex)
             {
@@ -210,6 +213,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             IList<string> createOpOwners = new List<string>();
 
             int memberCount = 0;
+
+            if (owners.Count > 100)
+            {
+                throw new UnexpectedDataException($"The group creation request {csentry.DN} contained more than 100 owners");
+            }
 
             foreach (string owner in owners)
             {
@@ -254,20 +262,30 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             Group result = await client.Groups
                 .Request()
                 .AddAsync(group, context.CancellationTokenSource.Token);
-
-            if (deferredMembers.Count > 0)
-            {
-                GroupExportProvider.logger.Trace($"Processing {deferredMembers.Count} deferred members");
-                await GraphHelper.AddGroupMembers(client, result.Id, deferredMembers, false, context.CancellationTokenSource.Token);
-            }
-
-            if (deferredOwners.Count > 0)
-            {
-                GroupExportProvider.logger.Trace($"Processing {deferredOwners.Count} deferred owners");
-                await GraphHelper.AddGroupOwners(client, result.Id, deferredOwners, false, context.CancellationTokenSource.Token);
-            }
-
             GroupExportProvider.logger.Info($"Created group {group.Id}");
+
+            try
+            {
+                if (deferredMembers.Count > 0)
+                {
+                    GroupExportProvider.logger.Trace($"Adding {deferredMembers.Count} deferred members");
+                    await GraphHelper.AddGroupMembers(client, result.Id, deferredMembers, false, context.CancellationTokenSource.Token);
+                }
+
+                if (deferredOwners.Count > 0)
+                {
+                    GroupExportProvider.logger.Trace($"Adding {deferredOwners.Count} deferred owners");
+                    await GraphHelper.AddGroupOwners(client, result.Id, deferredOwners, false, context.CancellationTokenSource.Token);
+                }
+            }
+            catch (Exception ex)
+            {
+                GroupExportProvider.logger.Error(ex, "An exception occurred while modifying the membership, rolling back the group by deleting it");
+                await client.Groups[result.Id].Request().DeleteAsync();
+                GroupExportProvider.logger.Info("The group was deleted");
+                throw;
+            }
+
             return result;
         }
 

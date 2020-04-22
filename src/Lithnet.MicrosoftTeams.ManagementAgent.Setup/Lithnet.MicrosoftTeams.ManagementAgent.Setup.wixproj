@@ -7,7 +7,7 @@
     <ProductVersion>3.9</ProductVersion>
     <ProjectGuid>937f89f4-5839-4b3b-9afb-109d2d1709bf</ProjectGuid>
     <SchemaVersion>2.0</SchemaVersion>
-    <OutputName>Lithnet.Okta.ManagementAgent.Setup</OutputName>
+    <OutputName>Lithnet.MicrosoftTeams.ManagementAgent.Setup</OutputName>
     <OutputType>Package</OutputType>
     <WixTargetsPath Condition=" '$(WixTargetsPath)' == '' AND '$(MSBuildExtensionsPath32)' != '' ">$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets</WixTargetsPath>
     <WixTargetsPath Condition=" '$(WixTargetsPath)' == '' ">$(MSBuildExtensionsPath)\Microsoft\WiX\v3.x\Wix.targets</WixTargetsPath>

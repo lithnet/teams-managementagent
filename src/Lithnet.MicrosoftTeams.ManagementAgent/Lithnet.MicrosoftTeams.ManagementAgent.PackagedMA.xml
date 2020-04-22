@@ -13,7 +13,7 @@
     <ma-companyname>Lithnet</ma-companyname>
     <subtype>ecma2-framework (Lithnet)</subtype>
     <ma-listname>Microsoft Teams (Lithnet)</ma-listname>
-    <id>{B965F673-D98D-4A77-9708-3CD4F63AB4C8}</id>
+    <id>{4E3F6360-3945-4FEC-8B22-20EE64E98AFE}</id>
     <category>Extensible2</category>
     <password-sync-allowed>0</password-sync-allowed>
     <schema>
@@ -21,249 +21,147 @@
         <dsml:directory-schema ms-dsml:no-objectclass-validation="true">
           <dsml:class id="user" type="structural" ms-dsml:locked="1">
             <dsml:name>user</dsml:name>
-            <dsml:attribute ref="#status" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#created" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#activated" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#statusChanged" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#lastLogin" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#lastUpdated" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#passwordChanged" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#provider.type" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#provider.name" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#suspended" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#login" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#firstName" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#lastName" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#middleName" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#honorificPrefix" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#honorificSuffix" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#email" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#title" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#displayName" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#nickName" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#profileUrl" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#secondEmail" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#mobilePhone" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#primaryPhone" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#streetAddress" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#city" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#state" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#zipCode" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#countryCode" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#postalAddress" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#preferredLanguage" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#locale" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#timezone" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#userType" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#employeeNumber" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#costCenter" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#organization" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#division" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#department" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#managerId" required="false" ms-dsml:isAnchor="false" />
-            <dsml:attribute ref="#manager" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#onPremisesSamAccountName" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
+            <dsml:attribute ref="#upn" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
             <dsml:attribute ref="#id" required="true" ms-dsml:isAnchor="true" ms-dsml:allowedOperation="ImportOnly" />
             <dsml:attribute ref="#export_password" required="false" />
           </dsml:class>
           <dsml:class id="group" type="structural" ms-dsml:locked="1">
             <dsml:name>group</dsml:name>
-            <dsml:attribute ref="#created" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#lastUpdated" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#lastMembershipUpdated" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#type" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ImportOnly" />
-            <dsml:attribute ref="#name" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#displayName" required="false" ms-dsml:isAnchor="false" />
             <dsml:attribute ref="#description" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#mailNickname" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#visibility" required="false" ms-dsml:isAnchor="false" />
             <dsml:attribute ref="#member" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#owner" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#isArchived" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#template" required="false" ms-dsml:isAnchor="false" ms-dsml:allowedOperation="ExportOnly" />
+            <dsml:attribute ref="#memberSettings_allowCreateUpdateChannels" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#memberSettings_allowDeleteChannels" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#memberSettings_allowAddRemoveApps" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#memberSettings_allowCreateUpdateRemoveTabs" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#memberSettings_allowCreateUpdateRemoveConnectors" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#guestSettings_allowCreateUpdateChannels" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#guestSettings_allowDeleteChannels" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#messagingSettings_allowUserEditMessages" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#messagingSettings_allowUserDeleteMessages" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#messagingSettings_allowOwnerDeleteMessages" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#messagingSettings_allowTeamMentions" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#messagingSettings_allowChannelMentions" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#funSettings_allowGiphy" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#funSettings_giphyContentRating" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#funSettings_allowStickersAndMemes" required="false" ms-dsml:isAnchor="false" />
+            <dsml:attribute ref="#funSettings_allowCustomMemes" required="false" ms-dsml:isAnchor="false" />
             <dsml:attribute ref="#id" required="true" ms-dsml:isAnchor="true" ms-dsml:allowedOperation="ImportOnly" />
             <dsml:attribute ref="#export_password" required="false" />
           </dsml:class>
-          <dsml:attribute-type id="status" single-value="true">
-            <dsml:name>status</dsml:name>
+          <dsml:attribute-type id="onPremisesSamAccountName" single-value="true" ms-dsml:immutable="true">
+            <dsml:name>onPremisesSamAccountName</dsml:name>
             <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
           </dsml:attribute-type>
-          <dsml:attribute-type id="created" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>created</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="activated" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>activated</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="statusChanged" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>statusChanged</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="lastLogin" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>lastLogin</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="lastUpdated" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>lastUpdated</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="passwordChanged" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>passwordChanged</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="provider.type" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>provider.type</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="provider.name" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>provider.name</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="suspended" single-value="true">
-            <dsml:name>suspended</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="login" single-value="true">
-            <dsml:name>login</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="firstName" single-value="true">
-            <dsml:name>firstName</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="lastName" single-value="true">
-            <dsml:name>lastName</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="middleName" single-value="true">
-            <dsml:name>middleName</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="honorificPrefix" single-value="true">
-            <dsml:name>honorificPrefix</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="honorificSuffix" single-value="true">
-            <dsml:name>honorificSuffix</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="email" single-value="true">
-            <dsml:name>email</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="title" single-value="true">
-            <dsml:name>title</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="displayName" single-value="true">
-            <dsml:name>displayName</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="nickName" single-value="true">
-            <dsml:name>nickName</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="profileUrl" single-value="true">
-            <dsml:name>profileUrl</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="secondEmail" single-value="true">
-            <dsml:name>secondEmail</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="mobilePhone" single-value="true">
-            <dsml:name>mobilePhone</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="primaryPhone" single-value="true">
-            <dsml:name>primaryPhone</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="streetAddress" single-value="true">
-            <dsml:name>streetAddress</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="city" single-value="true">
-            <dsml:name>city</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="state" single-value="true">
-            <dsml:name>state</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="zipCode" single-value="true">
-            <dsml:name>zipCode</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="countryCode" single-value="true">
-            <dsml:name>countryCode</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="postalAddress" single-value="true">
-            <dsml:name>postalAddress</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="preferredLanguage" single-value="true">
-            <dsml:name>preferredLanguage</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="locale" single-value="true">
-            <dsml:name>locale</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="timezone" single-value="true">
-            <dsml:name>timezone</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="userType" single-value="true">
-            <dsml:name>userType</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="employeeNumber" single-value="true">
-            <dsml:name>employeeNumber</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="costCenter" single-value="true">
-            <dsml:name>costCenter</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="organization" single-value="true">
-            <dsml:name>organization</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="division" single-value="true">
-            <dsml:name>division</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="department" single-value="true">
-            <dsml:name>department</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="managerId" single-value="true">
-            <dsml:name>managerId</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.12</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="manager" single-value="true">
-            <dsml:name>manager</dsml:name>
+          <dsml:attribute-type id="upn" single-value="true" ms-dsml:immutable="true">
+            <dsml:name>upn</dsml:name>
             <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
           </dsml:attribute-type>
           <dsml:attribute-type id="id" single-value="true" ms-dsml:immutable="true">
             <dsml:name>id</dsml:name>
             <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
           </dsml:attribute-type>
-          <dsml:attribute-type id="lastMembershipUpdated" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>lastMembershipUpdated</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="type" single-value="true" ms-dsml:immutable="true">
-            <dsml:name>type</dsml:name>
-            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
-          </dsml:attribute-type>
-          <dsml:attribute-type id="name" single-value="true">
-            <dsml:name>name</dsml:name>
+          <dsml:attribute-type id="displayName" single-value="true">
+            <dsml:name>displayName</dsml:name>
             <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
           </dsml:attribute-type>
           <dsml:attribute-type id="description" single-value="true">
             <dsml:name>description</dsml:name>
             <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
           </dsml:attribute-type>
+          <dsml:attribute-type id="mailNickname" single-value="true">
+            <dsml:name>mailNickname</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="visibility" single-value="true">
+            <dsml:name>visibility</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
+          </dsml:attribute-type>
           <dsml:attribute-type id="member" single-value="false">
             <dsml:name>member</dsml:name>
             <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.12</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="owner" single-value="false">
+            <dsml:name>owner</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.12</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="isArchived" single-value="true">
+            <dsml:name>isArchived</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="template" single-value="true" ms-dsml:export-only="true">
+            <dsml:name>template</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="memberSettings_allowCreateUpdateChannels" single-value="true">
+            <dsml:name>memberSettings_allowCreateUpdateChannels</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="memberSettings_allowDeleteChannels" single-value="true">
+            <dsml:name>memberSettings_allowDeleteChannels</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="memberSettings_allowAddRemoveApps" single-value="true">
+            <dsml:name>memberSettings_allowAddRemoveApps</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="memberSettings_allowCreateUpdateRemoveTabs" single-value="true">
+            <dsml:name>memberSettings_allowCreateUpdateRemoveTabs</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="memberSettings_allowCreateUpdateRemoveConnectors" single-value="true">
+            <dsml:name>memberSettings_allowCreateUpdateRemoveConnectors</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="guestSettings_allowCreateUpdateChannels" single-value="true">
+            <dsml:name>guestSettings_allowCreateUpdateChannels</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="guestSettings_allowDeleteChannels" single-value="true">
+            <dsml:name>guestSettings_allowDeleteChannels</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="messagingSettings_allowUserEditMessages" single-value="true">
+            <dsml:name>messagingSettings_allowUserEditMessages</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="messagingSettings_allowUserDeleteMessages" single-value="true">
+            <dsml:name>messagingSettings_allowUserDeleteMessages</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="messagingSettings_allowOwnerDeleteMessages" single-value="true">
+            <dsml:name>messagingSettings_allowOwnerDeleteMessages</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="messagingSettings_allowTeamMentions" single-value="true">
+            <dsml:name>messagingSettings_allowTeamMentions</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="messagingSettings_allowChannelMentions" single-value="true">
+            <dsml:name>messagingSettings_allowChannelMentions</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="funSettings_allowGiphy" single-value="true">
+            <dsml:name>funSettings_allowGiphy</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="funSettings_giphyContentRating" single-value="true">
+            <dsml:name>funSettings_giphyContentRating</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.15</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="funSettings_allowStickersAndMemes" single-value="true">
+            <dsml:name>funSettings_allowStickersAndMemes</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
+          </dsml:attribute-type>
+          <dsml:attribute-type id="funSettings_allowCustomMemes" single-value="true">
+            <dsml:name>funSettings_allowCustomMemes</dsml:name>
+            <dsml:syntax>1.3.6.1.4.1.1466.115.121.1.7</dsml:syntax>
           </dsml:attribute-type>
           <dsml:attribute-type id="export_password" single-value="true" ms-dsml:encrypted="true" ms-dsml:export-only="true">
             <dsml:name>export_password</dsml:name>
@@ -275,10 +173,16 @@
     <attribute-inclusion>
     </attribute-inclusion>
     <stay-disconnector />
-    <join />
-    <projection />
-    <export-attribute-flow />
-    <extension />
+    <join>
+    </join>
+    <projection>
+    </projection>
+    <export-attribute-flow>
+    </export-attribute-flow>
+    <extension>
+      <assembly-name>Lithnet.Umare.RulesExtension.dll</assembly-name>
+      <application-protection>low</application-protection>
+    </extension>
     <controller-configuration>
       <application-architecture>process</application-architecture>
     </controller-configuration>
@@ -286,8 +190,7 @@
       <account-joiner-queries>
         <attributes>
         </attributes>
-        <filters max_mv_search_results="">
-        </filters>
+        <filters max_mv_search_results="" />
       </account-joiner-queries>
     </ma-ui-settings>
     <private-configuration>
@@ -308,6 +211,10 @@
             </object_classes>
             <attributes>
             </attributes>
+            <anchor>
+              <attribute object_class="group">id</attribute>
+              <attribute object_class="user">id</attribute>
+            </anchor>
           </xmlwizard>
           <ma-help-text>Lithnet Microsoft Teams Management Agent</ma-help-text>
         </ui-data>
@@ -324,9 +231,26 @@
         <primary_class_mappings>
         </primary_class_mappings>
         <enable-unapplied-merge>0</enable-unapplied-merge>
+        <password-extension-config>
+          <password-extension-enabled>0</password-extension-enabled>
+          <dll data-owner="ISV">
+          </dll>
+          <password-set-enabled>
+          </password-set-enabled>
+          <password-change-enabled>
+          </password-change-enabled>
+          <connection-info>
+            <connect-to>
+            </connect-to>
+            <user>
+            </user>
+          </connection-info>
+          <timeout>
+          </timeout>
+        </password-extension-config>
         <file-type>Extensible2</file-type>
         <extension-config>
-          <filename data-owner="ISV">Lithnet.Okta.ManagementAgent.dll</filename>
+          <filename data-owner="ISV">Lithnet.MicrosoftTeams.ManagementAgent.dll</filename>
           <import-default-page-size>100</import-default-page-size>
           <import-max-page-size>9999</import-max-page-size>
           <export-default-page-size>100</export-default-page-size>
@@ -341,14 +265,14 @@
           <discovery-hierarchy>
           </discovery-hierarchy>
           <password-management-enabled>1</password-management-enabled>
-          <assembly-version>1.0.0.0</assembly-version>
+          <assembly-version>1.0.7417.20979</assembly-version>
           <supports-parameters-ex>0</supports-parameters-ex>
           <export-type>5</export-type>
-          <capability-bits>2164758584</capability-bits>
+          <capability-bits>2164756536</capability-bits>
         </extension-config>
         <parameter-definitions refreshSchema="0" refreshPartition="0" refreshConnectivityParameters="0" refreshSchemaParameters="0" refreshCapabilitiesParameters="0" refreshGlobalParameters="0" refreshOtherParameters="0">
           <parameter>
-            <name>Tenant URL</name>
+            <name>Tenant Domain</name>
             <use>connectivity</use>
             <type>string</type>
             <validation>
@@ -359,7 +283,18 @@
             </default-value>
           </parameter>
           <parameter>
-            <name>API key</name>
+            <name>Client ID</name>
+            <use>connectivity</use>
+            <type>string</type>
+            <validation>
+            </validation>
+            <text>
+            </text>
+            <default-value>
+            </default-value>
+          </parameter>
+          <parameter>
+            <name>Secret</name>
             <use>connectivity</use>
             <type>encrypted-string</type>
             <validation>
@@ -381,30 +316,9 @@
             </default-value>
           </parameter>
           <parameter>
-            <name>Include built-in groups</name>
+            <name>Teams query filter</name>
             <use>global</use>
-            <type>checkbox</type>
-            <validation>
-            </validation>
-            <text>
-            </text>
-            <default-value>0</default-value>
-          </parameter>
-          <parameter>
-            <name>Include app groups</name>
-            <use>global</use>
-            <type>checkbox</type>
-            <validation>
-            </validation>
-            <text>
-            </text>
-            <default-value>0</default-value>
-          </parameter>
-          <parameter>
-            <name>
-            </name>
-            <use>global</use>
-            <type>divider</type>
+            <type>string</type>
             <validation>
             </validation>
             <text>
@@ -412,86 +326,38 @@
             <default-value>
             </default-value>
           </parameter>
-          <parameter>
-            <name>User deprovisioning action</name>
-            <use>global</use>
-            <type>drop-down</type>
-            <validation>Delete,Deactivate,</validation>
-            <text>
-            </text>
-            <default-value>Deactivate</default-value>
-            <dropdown-extensible>0</dropdown-extensible>
-          </parameter>
         </parameter-definitions>
         <parameter-values>
         </parameter-values>
         <default_visible_attributes>
           <attribute>id</attribute>
-          <attribute>status</attribute>
-          <attribute>created</attribute>
-          <attribute>activated</attribute>
-          <attribute>statusChanged</attribute>
-          <attribute>lastLogin</attribute>
-          <attribute>lastUpdated</attribute>
-          <attribute>passwordChanged</attribute>
-          <attribute>provider.type</attribute>
-          <attribute>provider.name</attribute>
-          <attribute>suspended</attribute>
-          <attribute>login</attribute>
-          <attribute>firstName</attribute>
-          <attribute>lastName</attribute>
-          <attribute>middleName</attribute>
-          <attribute>honorificPrefix</attribute>
-          <attribute>honorificSuffix</attribute>
-          <attribute>email</attribute>
-          <attribute>title</attribute>
+          <attribute>onPremisesSamAccountName</attribute>
+          <attribute>upn</attribute>
           <attribute>displayName</attribute>
-          <attribute>nickName</attribute>
-          <attribute>profileUrl</attribute>
-          <attribute>secondEmail</attribute>
-          <attribute>mobilePhone</attribute>
-          <attribute>primaryPhone</attribute>
-          <attribute>streetAddress</attribute>
-          <attribute>city</attribute>
-          <attribute>state</attribute>
-          <attribute>zipCode</attribute>
-          <attribute>countryCode</attribute>
-          <attribute>postalAddress</attribute>
-          <attribute>preferredLanguage</attribute>
-          <attribute>locale</attribute>
-          <attribute>timezone</attribute>
-          <attribute>userType</attribute>
-          <attribute>employeeNumber</attribute>
-          <attribute>costCenter</attribute>
-          <attribute>organization</attribute>
-          <attribute>division</attribute>
-          <attribute>department</attribute>
-          <attribute>managerId</attribute>
-          <attribute>manager</attribute>
-          <attribute>lastMembershipUpdated</attribute>
-          <attribute>type</attribute>
-          <attribute>name</attribute>
           <attribute>description</attribute>
+          <attribute>mailNickname</attribute>
+          <attribute>visibility</attribute>
           <attribute>member</attribute>
+          <attribute>owner</attribute>
+          <attribute>isArchived</attribute>
+          <attribute>template</attribute>
+          <attribute>memberSettings_allowCreateUpdateChannels</attribute>
+          <attribute>memberSettings_allowDeleteChannels</attribute>
+          <attribute>memberSettings_allowAddRemoveApps</attribute>
+          <attribute>memberSettings_allowCreateUpdateRemoveTabs</attribute>
+          <attribute>memberSettings_allowCreateUpdateRemoveConnectors</attribute>
+          <attribute>guestSettings_allowCreateUpdateChannels</attribute>
+          <attribute>guestSettings_allowDeleteChannels</attribute>
+          <attribute>messagingSettings_allowUserEditMessages</attribute>
+          <attribute>messagingSettings_allowUserDeleteMessages</attribute>
+          <attribute>messagingSettings_allowOwnerDeleteMessages</attribute>
+          <attribute>messagingSettings_allowTeamMentions</attribute>
+          <attribute>messagingSettings_allowChannelMentions</attribute>
+          <attribute>funSettings_allowGiphy</attribute>
+          <attribute>funSettings_giphyContentRating</attribute>
+          <attribute>funSettings_allowStickersAndMemes</attribute>
+          <attribute>funSettings_allowCustomMemes</attribute>
         </default_visible_attributes>
-        <password-extension-config>
-          <password-extension-enabled>0</password-extension-enabled>
-          <dll data-owner="ISV">
-          </dll>
-          <password-set-enabled>
-          </password-set-enabled>
-          <password-change-enabled>
-          </password-change-enabled>
-          <connection-info>
-            <connect-to>
-            </connect-to>
-            <user>
-            </user>
-          </connection-info>
-          <timeout>
-          </timeout>
-        </password-extension-config>
-        <case_normalize_dn_for_anchor>1</case_normalize_dn_for_anchor>
       </MAConfig>
     </private-configuration>
     <SyncConfig-refresh-schema>0</SyncConfig-refresh-schema>
@@ -499,7 +365,7 @@
     </ma-partition-data>
     <ma-run-data>
     </ma-run-data>
-    <capabilities-mask>81079839</capabilities-mask>
+    <capabilities-mask>81079039</capabilities-mask>
     <export-type>5</export-type>
     <dn-construction />
     <password-sync>
@@ -510,6 +376,7 @@
     <component_mappings />
   </ma-data>
   <mv-data>
-    <import-attribute-flow />
+    <import-attribute-flow>
+    </import-attribute-flow>
   </mv-data>
 </export-ma>
