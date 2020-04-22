@@ -90,7 +90,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     members.AddRange(page.CurrentPage);
                 }
             }
-            
+
             return members;
         }
 
@@ -211,6 +211,18 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
+        internal static async Task CreateTeam(GraphServiceClient client, Team team, CancellationToken token)
+        {
+            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+
+            HttpRequestMessage createEventMessage = new HttpRequestMessage(HttpMethod.Post, client.Teams.Request().RequestUrl);
+            createEventMessage.Content = new StringContent(JsonConvert.SerializeObject(team), Encoding.UTF8, "application/json");
+
+            requests.Add(new BatchRequestStep("1", createEventMessage));
+
+            await SubmitAsBatches(client, requests, false, false, token);
+        }
+
         private static async Task SubmitAsBatches(GraphServiceClient client, List<BatchRequestStep> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
         {
             BatchRequestContent content = new BatchRequestContent();
@@ -243,6 +255,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             foreach (KeyValuePair<string, HttpResponseMessage> r in await response.GetResponsesAsync())
             {
+                logger.Trace(JsonConvert.SerializeObject(r.Value));
+
                 if (!r.Value.IsSuccessStatusCode)
                 {
                     if (ignoreNotFound && r.Value.StatusCode == System.Net.HttpStatusCode.NotFound)

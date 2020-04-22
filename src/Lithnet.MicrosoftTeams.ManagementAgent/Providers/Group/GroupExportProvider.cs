@@ -82,8 +82,21 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             try
             {
+                IList<string> owners = csentry.GetValueAdds<string>("owner") ?? new List<string>();
+
+                if (owners.Count == 0)
+                {
+                    throw new UnexpectedDataException($"Cannot great a team without an owner");
+                }
+
+                if (owners.Count > 100)
+                {
+                    throw new UnexpectedDataException($"Cannot create a team with more than 100 owners");
+                }
+
+                Team team = await this.CreateTeam(csentry, client, owners[0], context);
+
                 result = await this.CreateGroup(csentry, context, client);
-                await this.CreateTeam(csentry, client, result.Id, context);
             }
             catch (Exception ex)
             {
@@ -110,7 +123,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return CSEntryChangeResult.Create(csentry.Identifier, anchorChanges, MAExportError.Success);
         }
 
-        private async Task CreateTeam(CSEntryChange csentry, GraphServiceClient client, string groupId, ExportContext context)
+        private async Task<Team> CreateTeam(CSEntryChange csentry, GraphServiceClient client, string ownerid, ExportContext context)
         {
             Team team = new Team
             {
@@ -120,7 +133,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 FunSettings = new TeamFunSettings(),
                 ODataType = null
             };
-
+            team.DisplayName = csentry.GetValueAdd<string>("displayName") ?? throw new UnexpectedDataException("A displayName must be provided");
             team.MemberSettings.ODataType = null;
             team.GuestSettings.ODataType = null;
             team.MessagingSettings.ODataType = null;
@@ -129,10 +142,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             string template = csentry.GetValueAdd<string>("template") ?? "https://graph.microsoft.com/beta/teamsTemplates('standard')";
 
-           // if (!string.IsNullOrWhiteSpace(template))
-           // {
-           //     team.AdditionalData.Add("template@odata.bind", template); //"https://graph.microsoft.com/beta/teamsTemplates('standard')"
-           // }
+            if (!string.IsNullOrWhiteSpace(template))
+            {
+                team.AdditionalData.Add("template@odata.bind", template); //"https://graph.microsoft.com/beta/teamsTemplates('standard')"
+            }
+
+            team.AdditionalData.Add("owners@odata.bind", new[] {$"https://graph.microsoft.com/beta/users('{ownerid}')"});
 
             //team.AdditionalData.Add("group@odata.bind", $"https://graph.microsoft.com/v1.0/groups('{groupId}')");
 
@@ -163,32 +178,28 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 team.FunSettings.GiphyContentRating = grt;
             }
 
-            GroupExportProvider.logger.Info($"Creating team for group {groupId} using template {template ?? "standard"}");
+            GroupExportProvider.logger.Info($"Creating team using template {template ?? "standard"}");
             GroupExportProvider.logger.Trace($"Team data: {JsonConvert.SerializeObject(team)}");
 
-            Team tresult;
-            
-            try
+            await GraphHelper.CreateTeam(client, team, context.CancellationTokenSource.Token);
+
+            Team tresult = await client.Teams.Request().AddAsync(team, context.CancellationTokenSource.Token);
+            //tresult = await client.Groups[groupId].Team.Request().PutAsync(team);
+
+            if (tresult == null)
             {
-                //tresult = await client.Teams.Request().AddAsync(team, context.CancellationTokenSource.Token);
-                tresult = await client.Groups[groupId].Team.Request().PutAsync(team);
+                logger.Trace("Result object was null");
             }
-            catch (ServiceException ex)
+            else
             {
-                if (ex.StatusCode == HttpStatusCode.NotFound)
-                {
-                    await Task.Delay(5000, context.CancellationTokenSource.Token);
-                    tresult = await client.Groups[groupId].Team
-                        .Request()
-                        .PutAsync(team);
-                }
-                else
-                {
-                    throw;
-                }
+                logger.Trace($"Result object {JsonConvert.SerializeObject(tresult)}");
             }
 
-            GroupExportProvider.logger.Info($"Created team {tresult?.Id} for group {groupId}");
+            logger.Trace(JsonConvert.SerializeObject(team));
+
+            GroupExportProvider.logger.Info($"Created team {team.Id}");
+
+            return tresult;
         }
 
         private async Task<Group> CreateGroup(CSEntryChange csentry, ExportContext context, GraphServiceClient client)

@@ -172,7 +172,6 @@
   <PropertyGroup>
     <PostBuildEvent>if not exist "$(TargetDir)merged" mkdir "$(TargetDir)merged"
 $(SolutionDir)\packages\ILRepack.2.0.18\tools\ILRepack.exe /targetplatform:"v4,C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0" /out:$(TargetDir)merged\$(TargetName).dll $(TargetDir)$(TargetName).dll Lithnet.Ecma2Framework.dll
-REM $(SolutionDir)\packages\ILRepack.2.0.18\tools\ILRepack.exe /targetplatform:"v4,C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0" /lib:D:\github\lithnet\okta-managementagent\src\packages\Newtonsoft.Json.11.0.2\lib\net45\ /out:$(TargetDir)merged\$(TargetName).dll $(TargetDir)$(TargetName).dll Lithnet.Ecma2Framework.dll
 del "$(TargetDir)*" /Q
 move /Y "$(TargetDir)merged\*" "$(TargetDir)"
 rmdir "$(TargetDir)merged"
