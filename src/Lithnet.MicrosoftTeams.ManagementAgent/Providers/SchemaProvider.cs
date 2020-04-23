@@ -57,6 +57,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("upn", AttributeType.String, AttributeOperation.ImportOnly);
             mmsType.Attributes.Add(mmsAttribute);
 
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("displayName", AttributeType.String, AttributeOperation.ImportExport);
+            mmsType.Attributes.Add(mmsAttribute);
+
             return mmsType;
         }
 

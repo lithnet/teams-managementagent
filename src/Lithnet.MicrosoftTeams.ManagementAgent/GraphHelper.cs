@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Graph;
-using Microsoft.MetadirectoryServices;
 using Newtonsoft.Json;
 using NLog;
 
@@ -15,6 +15,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     internal static class GraphHelper
     {
         private const int MaxJsonBatchRequests = 20;
+
+        private static TokenBucket rateLimiter = new TokenBucket("batch", MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestLimit, TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestWindowSeconds), MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestLimit);
 
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
@@ -90,7 +92,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     members.AddRange(page.CurrentPage);
                 }
             }
-            
+
             return members;
         }
 
@@ -235,13 +237,19 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
+        private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int retryCount = 0)
         {
+            rateLimiter.Consume(content.BatchRequestSteps.Count + 1, token);
+
             BatchResponseContent response = await client.Batch.Request().PostAsync(content, token);
 
             List<Exception> exceptions = new List<Exception>();
+            List<BatchRequestStep> stepsToRetry = new List<BatchRequestStep>();
 
-            foreach (KeyValuePair<string, HttpResponseMessage> r in await response.GetResponsesAsync())
+            var responses = await response.GetResponsesAsync();
+            int retryInterval = 0;
+
+            foreach (KeyValuePair<string, HttpResponseMessage> r in responses)
             {
                 if (!r.Value.IsSuccessStatusCode)
                 {
@@ -272,6 +280,24 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         };
                     }
 
+                    if (r.Value.StatusCode == (HttpStatusCode)429 && retryCount <= 5)
+                    {
+                        if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
+                        {
+                            string tryAfter = outvalues.FirstOrDefault() ?? "0";
+                            retryInterval = int.Parse(tryAfter);
+                            logger.Warn($"Rate limit encountered, backoff internal of {retryInterval} found");
+                        }
+                        else
+                        {
+                            logger.Warn("Rate limit encountered, but not backoff period specified");
+                        } 
+
+                        var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
+                        stepsToRetry.Add(step.Value);
+                        continue;
+                    }
+
                     if (ignoreRefAlreadyExists && r.Value.StatusCode == System.Net.HttpStatusCode.BadRequest && er.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
                     {
                         logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
@@ -280,6 +306,24 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                     exceptions.Add(new ServiceException(er.Error, r.Value.Headers, r.Value.StatusCode));
                 }
+            }
+
+            if (stepsToRetry.Count > 0 && retryCount <= 5)
+            {
+                BatchRequestContent newContent = new BatchRequestContent();
+
+                foreach (var stepToRetry in stepsToRetry)
+                {
+                    newContent.AddBatchRequestStep(stepToRetry);
+                }
+
+                if (retryInterval == 0)
+                {
+                    retryInterval = 30;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
+                await SubmitBatchContent(client, newContent, ignoreNotFound, ignoreRefAlreadyExists, token, ++retryCount);
             }
 
             if (exceptions.Count == 1)

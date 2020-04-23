@@ -20,6 +20,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private const int MaxReferencesPerCreateRequest = 20;
 
+        private const int MaxRetryOnNotFound = 7;
+
         public bool CanExport(CSEntryChange csentry)
         {
             return csentry.ObjectType == "group";
@@ -61,7 +63,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
             catch (ServiceException ex)
             {
-                if (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                if (ex.StatusCode == HttpStatusCode.NotFound)
                 {
                     logger.Warn($"The request to delete the group {csentry.DN} failed because the group doesn't exist");
                 }
@@ -85,20 +87,21 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 result = await this.CreateGroup(csentry, context, client);
                 await this.CreateTeam(csentry, client, result.Id, context);
             }
-            catch (Exception ex)
+            catch
             {
                 try
                 {
                     if (result != null)
                     {
-                        GroupExportProvider.logger.Error(ex, "An exception occurred while creating the team, rolling back the group by deleting it");
-                        await client.Groups[result?.Id].Request().DeleteAsync();
-                        GroupExportProvider.logger.Info("The group was deleted");
+                        GroupExportProvider.logger.Error($"{csentry.DN}: An exception occurred while creating the team, rolling back the group by deleting it");
+                        await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay));
+                        await client.Groups[result.Id].Request().DeleteAsync();
+                        GroupExportProvider.logger.Info($"{csentry.DN}: The group was deleted");
                     }
                 }
                 catch (Exception ex2)
                 {
-                    GroupExportProvider.logger.Error(ex2, "An exception occurred while rolling back the team");
+                    GroupExportProvider.logger.Error(ex2, $"{csentry.DN}: An exception occurred while rolling back the team");
                 }
 
                 throw;
@@ -129,10 +132,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             string template = csentry.GetValueAdd<string>("template") ?? "https://graph.microsoft.com/beta/teamsTemplates('standard')";
 
-           // if (!string.IsNullOrWhiteSpace(template))
-           // {
-           //     team.AdditionalData.Add("template@odata.bind", template); //"https://graph.microsoft.com/beta/teamsTemplates('standard')"
-           // }
+            // if (!string.IsNullOrWhiteSpace(template))
+            // {
+            //     team.AdditionalData.Add("template@odata.bind", template); //"https://graph.microsoft.com/beta/teamsTemplates('standard')"
+            // }
 
             //team.AdditionalData.Add("group@odata.bind", $"https://graph.microsoft.com/v1.0/groups('{groupId}')");
 
@@ -163,32 +166,37 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 team.FunSettings.GiphyContentRating = grt;
             }
 
-            GroupExportProvider.logger.Info($"Creating team for group {groupId} using template {template ?? "standard"}");
-            GroupExportProvider.logger.Trace($"Team data: {JsonConvert.SerializeObject(team)}");
+            GroupExportProvider.logger.Info($"{csentry.DN}: Creating team for group {groupId} using template {template ?? "standard"}");
+            GroupExportProvider.logger.Trace($"{csentry.DN}: Team data: {JsonConvert.SerializeObject(team)}");
 
-            Team tresult;
-            
-            try
+            Team tresult = null;
+
+            bool success = false;
+            int retryCount = 0;
+
+            while (!success)
             {
-                //tresult = await client.Teams.Request().AddAsync(team, context.CancellationTokenSource.Token);
-                tresult = await client.Groups[groupId].Team.Request().PutAsync(team);
-            }
-            catch (ServiceException ex)
-            {
-                if (ex.StatusCode == HttpStatusCode.NotFound)
+                try
                 {
-                    await Task.Delay(5000, context.CancellationTokenSource.Token);
-                    tresult = await client.Groups[groupId].Team
-                        .Request()
-                        .PutAsync(team);
+                    tresult = await client.Groups[groupId].Team.Request().PutAsync(team);
+                    success = true;
                 }
-                else
+                catch (ServiceException ex)
                 {
-                    throw;
+                    if (IsRetryable(ex) && retryCount <= MaxRetryOnNotFound)
+                    {
+                        retryCount++;
+                        logger.Warn(ex, $"{csentry.DN}: A retryable error was detected while trying to create the team (attempt: {retryCount})");
+                        await Task.Delay(TimeSpan.FromSeconds(5 * retryCount), context.CancellationTokenSource.Token);
+                    }
+                    else
+                    {
+                        throw;
+                    }
                 }
             }
 
-            GroupExportProvider.logger.Info($"Created team {tresult?.Id} for group {groupId}");
+            GroupExportProvider.logger.Info($"{csentry.DN}: Created team {tresult?.Id ?? "<unknown id>"} for group {groupId}");
         }
 
         private async Task<Group> CreateGroup(CSEntryChange csentry, ExportContext context, GraphServiceClient client)
@@ -256,38 +264,103 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 group.AdditionalData.Add("owners@odata.bind", createOpOwners.ToArray());
             }
 
-            GroupExportProvider.logger.Trace($"Creating group {group.MailNickname} with {createOpMembers.Count} members and {createOpOwners.Count} owners (Deferring {deferredMembers.Count} members and {deferredOwners.Count} owners until after group creation)");
+            GroupExportProvider.logger.Trace($"{csentry.DN}: Creating group {group.MailNickname} with {createOpMembers.Count} members and {createOpOwners.Count} owners (Deferring {deferredMembers.Count} members and {deferredOwners.Count} owners until after group creation)");
 
-            GroupExportProvider.logger.Trace($"Group data: {JsonConvert.SerializeObject(group)}");
+            GroupExportProvider.logger.Trace($"{csentry.DN}: Group data: {JsonConvert.SerializeObject(group)}");
 
-            Group result = await client.Groups
-                .Request()
-                .AddAsync(group, context.CancellationTokenSource.Token);
-            GroupExportProvider.logger.Info($"Created group {group.Id}");
+            Group result;
+            try
+            {
+                result = await client.Groups.Request().AddAsync(group, context.CancellationTokenSource.Token);
+            }
+            catch (ServiceException ex)
+            {
+                if (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.IndexOf("mailNickname", 0, StringComparison.Ordinal) > 0)
+                {
+                    string mailNickname = csentry.GetValueAdd<string>("mailNickname");
+                    logger.Warn($"{csentry.DN}: Delete/Adding conflicting group with mailNickname '{mailNickname}'");
+                    var r2 = await client.Groups.Request().Filter($"mailNickname eq '{mailNickname}'").GetAsync();
+                    await client.Groups[r2[0].Id].Request().DeleteAsync();
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    result = await client.Groups.Request().AddAsync(group, context.CancellationTokenSource.Token);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            GroupExportProvider.logger.Info($"{csentry.DN}: Created group {group.Id}");
+
+            await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay), context.CancellationTokenSource.Token);
 
             try
             {
-                if (deferredMembers.Count > 0)
-                {
-                    GroupExportProvider.logger.Trace($"Adding {deferredMembers.Count} deferred members");
-                    await GraphHelper.AddGroupMembers(client, result.Id, deferredMembers, false, context.CancellationTokenSource.Token);
-                }
-
-                if (deferredOwners.Count > 0)
-                {
-                    GroupExportProvider.logger.Trace($"Adding {deferredOwners.Count} deferred owners");
-                    await GraphHelper.AddGroupOwners(client, result.Id, deferredOwners, false, context.CancellationTokenSource.Token);
-                }
+                await GroupExportProvider.ProcessDeferredMembership(context, client, deferredMembers, result, deferredOwners, csentry.DN);
             }
             catch (Exception ex)
             {
-                GroupExportProvider.logger.Error(ex, "An exception occurred while modifying the membership, rolling back the group by deleting it");
+                GroupExportProvider.logger.Error(ex, $"{csentry.DN}: An exception occurred while modifying the membership, rolling back the group by deleting it");
+                await Task.Delay(TimeSpan.FromSeconds(5));
                 await client.Groups[result.Id].Request().DeleteAsync();
-                GroupExportProvider.logger.Info("The group was deleted");
+                GroupExportProvider.logger.Info($"{csentry.DN}: The group was deleted");
                 throw;
             }
 
             return result;
+        }
+
+        private static async Task ProcessDeferredMembership(ExportContext context, GraphServiceClient client, IList<string> deferredMembers, Group result, IList<string> deferredOwners, string csentryDN)
+        {
+            bool success = false;
+            int retryCount = 0;
+
+            while (!success)
+            {
+                try
+                {
+                    if (deferredMembers.Count > 0)
+                    {
+                        GroupExportProvider.logger.Trace($"{csentryDN}: Adding {deferredMembers.Count} deferred members");
+                        await GraphHelper.AddGroupMembers(client, result.Id, deferredMembers, true, context.CancellationTokenSource.Token);
+                    }
+
+                    if (deferredOwners.Count > 0)
+                    {
+                        GroupExportProvider.logger.Trace($"{csentryDN}: Adding {deferredOwners.Count} deferred owners");
+                        await GraphHelper.AddGroupOwners(client, result.Id, deferredOwners, true, context.CancellationTokenSource.Token);
+                    }
+
+                    success = true;
+                }
+                catch (Exception ex)
+                {
+                    if (ex is ServiceException svcex && IsRetryable(svcex) ||
+                        (ex is AggregateException aex && aex.InnerExceptions[0] is ServiceException e2 && IsRetryable(e2)))
+                    {
+                        if (retryCount <= MaxRetryOnNotFound)
+                        {
+                            retryCount++;
+                            logger.Warn(ex, $"{csentryDN}:A retryable error was detected while trying to create the team (attempt: {retryCount})");
+                            await Task.Delay(TimeSpan.FromSeconds(2 * retryCount), context.CancellationTokenSource.Token);
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static bool IsRetryable(ServiceException ex)
+        {
+            return ex.StatusCode == HttpStatusCode.NotFound ||
+                   ex.StatusCode == HttpStatusCode.BadGateway;
         }
 
         private async Task<CSEntryChangeResult> PutCSEntryChangeUpdate(CSEntryChange csentry, ExportContext context)
@@ -413,13 +486,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (changed)
             {
-                GroupExportProvider.logger.Trace($"Updating team data: {JsonConvert.SerializeObject(team)}");
+                GroupExportProvider.logger.Trace($"{csentry.DN}:Updating team data: {JsonConvert.SerializeObject(team)}");
 
                 await client.Teams[csentry.DN]
                     .Request()
                     .UpdateAsync(team);
 
-                GroupExportProvider.logger.Info($"Updated team {csentry.DN}");
+                GroupExportProvider.logger.Info($"{csentry.DN}: Updated team");
             }
         }
 
@@ -479,9 +552,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (changed)
             {
-                GroupExportProvider.logger.Trace($"Updating group data: {JsonConvert.SerializeObject(group)}");
+                GroupExportProvider.logger.Trace($"{csentry.DN}:Updating group data: {JsonConvert.SerializeObject(group)}");
                 await client.Groups[csentry.DN].Request().UpdateAsync(group);
-                GroupExportProvider.logger.Info($"Updated group {csentry.DN}");
+                GroupExportProvider.logger.Info($"{csentry.DN}: Updated group {csentry.DN}");
             }
         }
 

@@ -116,6 +116,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, user.UserPrincipalName));
                     }
                 }
+                else if (type.Name == "displayName")
+                {
+                    if (!string.IsNullOrWhiteSpace(user.DisplayName))
+                    {
+                        c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, user.DisplayName));
+                    }
+                }
                 else if (type.Name == "id")
                 {
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, user.Id));
@@ -136,7 +143,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 e.DisplayName,
                 e.OnPremisesSamAccountName,
                 e.Id,
-                e.UserPrincipalName
+                e.UserPrincipalName,
             }).GetAsync(context.CancellationTokenSource.Token);
         }
 
