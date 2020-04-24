@@ -43,10 +43,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropPostGroupCreateDelay, IsRequired = false, DefaultValue = 8)]
         public int PostGroupCreateDelay => (int)this[MicrosoftTeamsMAConfigSection.PropPostGroupCreateDelay];
 
-        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropRateLimitRequestWindow, IsRequired = false, DefaultValue = 10)]
+        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropRateLimitRequestWindow, IsRequired = false, DefaultValue = 150)]
         public int RateLimitRequestWindowSeconds => (int)this[MicrosoftTeamsMAConfigSection.PropRateLimitRequestWindow];
 
-        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropRateLimitRequestLimit, IsRequired = false, DefaultValue = 100)]
+        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropRateLimitRequestLimit, IsRequired = false, DefaultValue = 3000)]
         public int RateLimitRequestLimit => (int)this[MicrosoftTeamsMAConfigSection.PropRateLimitRequestLimit];
     }
 }

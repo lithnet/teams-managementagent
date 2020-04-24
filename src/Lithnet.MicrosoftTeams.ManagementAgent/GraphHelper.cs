@@ -237,7 +237,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int retryCount = 0)
+        private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int retryCount = 1)
         {
             rateLimiter.Consume(content.BatchRequestSteps.Count + 1, token);
 
@@ -245,66 +245,69 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             List<Exception> exceptions = new List<Exception>();
             List<BatchRequestStep> stepsToRetry = new List<BatchRequestStep>();
+            int retryInterval = 0;
 
             var responses = await response.GetResponsesAsync();
-            int retryInterval = 0;
 
             foreach (KeyValuePair<string, HttpResponseMessage> r in responses)
             {
-                if (!r.Value.IsSuccessStatusCode)
+                using (r.Value)
                 {
-                    if (ignoreNotFound && r.Value.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    if (!r.Value.IsSuccessStatusCode)
                     {
-                        logger.Warn($"The request ({r.Key}) to remove object failed because it did not exist");
-                        continue;
-                    }
-
-                    ErrorResponse er;
-                    try
-                    {
-                        string econtent = await r.Value.Content.ReadAsStringAsync();
-                        logger.Trace(econtent);
-
-                        er = JsonConvert.DeserializeObject<ErrorResponse>(econtent);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Trace(ex, "The error response could not be deserialized");
-                        er = new ErrorResponse
+                        if (ignoreNotFound && r.Value.StatusCode == HttpStatusCode.NotFound)
                         {
-                            Error = new Error
-                            {
-                                Code = r.Value.StatusCode.ToString(),
-                                Message = r.Value.ReasonPhrase
-                            }
-                        };
-                    }
-
-                    if (r.Value.StatusCode == (HttpStatusCode)429 && retryCount <= 5)
-                    {
-                        if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
-                        {
-                            string tryAfter = outvalues.FirstOrDefault() ?? "0";
-                            retryInterval = int.Parse(tryAfter);
-                            logger.Warn($"Rate limit encountered, backoff internal of {retryInterval} found");
+                            logger.Warn($"The request ({r.Key}) to remove object failed because it did not exist");
+                            continue;
                         }
-                        else
+
+                        ErrorResponse er;
+                        try
                         {
-                            logger.Warn("Rate limit encountered, but not backoff period specified");
-                        } 
+                            string econtent = await r.Value.Content.ReadAsStringAsync();
+                            logger.Trace(econtent);
 
-                        var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
-                        stepsToRetry.Add(step.Value);
-                        continue;
+                            er = JsonConvert.DeserializeObject<ErrorResponse>(econtent);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Trace(ex, "The error response could not be deserialized");
+                            er = new ErrorResponse
+                            {
+                                Error = new Error
+                                {
+                                    Code = r.Value.StatusCode.ToString(),
+                                    Message = r.Value.ReasonPhrase
+                                }
+                            };
+                        }
+
+                        if (r.Value.StatusCode == (HttpStatusCode)429 && retryCount <= 5)
+                        {
+                            if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
+                            {
+                                string tryAfter = outvalues.FirstOrDefault() ?? "0";
+                                retryInterval = int.Parse(tryAfter);
+                                logger.Warn($"Rate limit encountered, backoff interval of {retryInterval} found");
+                            }
+                            else
+                            {
+                                logger.Warn("Rate limit encountered, but no backoff interval specified");
+                            }
+
+                            var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
+                            stepsToRetry.Add(step.Value);
+                            continue;
+                        }
+
+                        if (ignoreRefAlreadyExists && r.Value.StatusCode == HttpStatusCode.BadRequest && er.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
+                        {
+                            logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
+                            continue;
+                        }
+
+                        exceptions.Add(new ServiceException(er.Error, r.Value.Headers, r.Value.StatusCode));
                     }
-
-                    if (ignoreRefAlreadyExists && r.Value.StatusCode == System.Net.HttpStatusCode.BadRequest && er.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
-                    {
-                        logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
-                        continue;
-                    }
-
-                    exceptions.Add(new ServiceException(er.Error, r.Value.Headers, r.Value.StatusCode));
                 }
             }
 
@@ -322,6 +325,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     retryInterval = 30;
                 }
 
+                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {retryCount}");
                 await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
                 await SubmitBatchContent(client, newContent, ignoreNotFound, ignoreRefAlreadyExists, token, ++retryCount);
             }
