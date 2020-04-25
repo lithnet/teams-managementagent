@@ -1,4 +1,5 @@
-﻿using System;
+﻿extern alias BetaLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -7,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Beta = BetaLib.Microsoft.Graph;
 using Microsoft.Graph;
 using Newtonsoft.Json;
 using NLog;
@@ -42,9 +44,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().GetAsync(token), token, 0);
         }
 
-        internal static async Task<List<Channel>> GetChannels(GraphServiceClient client, string groupid, CancellationToken token)
+        internal static async Task<List<Beta.Channel>> GetChannels(Beta.GraphServiceClient client, string groupid, CancellationToken token)
         {
-            List<Channel> channels = new List<Channel>();
+            List<Beta.Channel> channels = new List<Beta.Channel>();
 
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupid].Channels.Request().GetAsync(token), token, 0);
 
@@ -63,9 +65,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return channels;
         }
 
-        internal static async Task<List<ConversationMember>> GetChannelMembers(GraphServiceClient client, string groupId, string channelId, CancellationToken token)
+        internal static async Task<List<Beta.ConversationMember>> GetChannelMembers(Beta.GraphServiceClient client, string groupId, string channelId, CancellationToken token)
         {
-            List<ConversationMember> members = new List<ConversationMember>();
+            List<Beta.ConversationMember> members = new List<Beta.ConversationMember>();
 
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token), token, 0);
 
@@ -201,11 +203,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
-        internal static async Task GetGroups(IGraphServiceGroupsCollectionRequest request, ITargetBlock<Group> target, CancellationToken cancellationToken)
+        internal static async Task GetGroups(Beta.IGraphServiceGroupsCollectionRequest request, ITargetBlock<Beta.Group> target, CancellationToken cancellationToken)
         {
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(cancellationToken), cancellationToken, 0);
 
-            foreach (Group group in page.CurrentPage)
+            foreach (Beta.Group group in page.CurrentPage)
             {
                 target.Post(group);
             }
@@ -214,7 +216,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(cancellationToken), cancellationToken, 0);
 
-                foreach (Group group in page.CurrentPage)
+                foreach (Beta.Group group in page.CurrentPage)
                 {
                     target.Post(group);
                 }

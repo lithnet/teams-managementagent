@@ -77,8 +77,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private CSEntryChange UserToCSEntryChange(bool inDelta, SchemaType schemaType, User user, ImportContext context)
         {
-            UserImportProvider.logger.Trace($"Creating CSEntryChange for {user.Id}/{user.OnPremisesSamAccountName}");
-
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "user";
             c.ObjectModificationType = ObjectModificationType.Add;

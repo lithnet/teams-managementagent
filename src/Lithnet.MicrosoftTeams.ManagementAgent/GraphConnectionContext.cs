@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿extern alias BetaLib;
+using Beta = BetaLib.Microsoft.Graph;
 using System.Collections.ObjectModel;
-using System.Net.Http;
-using System.Threading.Tasks;
 using Lithnet.Ecma2Framework;
 using Lithnet.MetadirectoryServices;
 using Microsoft.Graph;
@@ -10,7 +8,6 @@ using Microsoft.Graph.Auth;
 using Microsoft.Identity.Client;
 using Microsoft.MetadirectoryServices;
 using NLog;
-using NLog.Config;
 using Logger = NLog.Logger;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
@@ -20,6 +17,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public GraphServiceClient Client { get; private set; }
+
+        public Beta.GraphServiceClient BetaClient { get; private set; }
 
         internal static GraphConnectionContext GetConnectionContext(KeyedCollection<string, ConfigParameter> configParameters)
         {
@@ -38,7 +37,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             return new GraphConnectionContext()
             {
-                Client = new GraphServiceClient(authProvider)
+                Client = new GraphServiceClient(authProvider),
+                BetaClient = new Beta.GraphServiceClient(authProvider)
             };
         }
     }

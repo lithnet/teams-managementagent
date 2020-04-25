@@ -1,13 +1,15 @@
-﻿using System;
+﻿extern alias BetaLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Beta = BetaLib.Microsoft.Graph;
 using Lithnet.Ecma2Framework;
-using Microsoft.Graph;
 using Microsoft.MetadirectoryServices;
 using NLog;
+using Microsoft.Graph;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
@@ -19,9 +21,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
-                IGraphServiceGroupsCollectionRequest groups = this.GetGroupEnumerationRequest(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).Client, context);
+                Beta.IGraphServiceGroupsCollectionRequest groups = this.GetGroupEnumerationRequest(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).BetaClient, context);
 
-                BufferBlock<Group> groupQueue = new BufferBlock<Group>(new DataflowBlockOptions() { CancellationToken = context.Token });
+                BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions() { CancellationToken = context.Token });
 
                 Task consumerTask = this.ConsumeQueue(context, type, groupQueue);
 
@@ -36,13 +38,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task ProduceObjects(IGraphServiceGroupsCollectionRequest request, ITargetBlock<Group> target, CancellationToken cancellationToken)
+        private async Task ProduceObjects(Beta.IGraphServiceGroupsCollectionRequest request, ITargetBlock<Beta.Group> target, CancellationToken cancellationToken)
         {
             await GraphHelper.GetGroups(request, target, cancellationToken);
             target.Complete();
         }
 
-        private async Task ConsumeQueue(ImportContext context, SchemaType type, ISourceBlock<Group> source)
+        private async Task ConsumeQueue(ImportContext context, SchemaType type, ISourceBlock<Beta.Group> source)
         {
             var edfo = new ExecutionDataflowBlockOptions
             {
@@ -50,7 +52,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 CancellationToken = context.Token,
             };
 
-            ActionBlock<Group> action = new ActionBlock<Group>(async group =>
+            ActionBlock<Beta.Group> action = new ActionBlock<Beta.Group>(async group =>
             {
                 try
                 {
@@ -61,7 +63,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         await this.GroupMemberToCSEntryChange(c, type, context);
                         await this.TeamToCSEntryChange(c, type, context).ConfigureAwait(false);
                         context.ImportItems.Add(c, context.Token);
-                        await this.CreateChannelCSEntryChanges(group, type, context);
+                        await this.CreateChannelCSEntryChanges(group.Id, type, context);
                     }
                 }
                 catch (Exception ex)
@@ -81,10 +83,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await action.Completion;
         }
 
-        private CSEntryChange GroupToCSEntryChange(Group group, SchemaType schemaType, ImportContext context)
+        private CSEntryChange GroupToCSEntryChange(Beta.Group group, SchemaType schemaType, ImportContext context)
         {
-            GroupImportProvider.logger.Trace($"Creating CSEntryChange for {group.Id}/{group.DisplayName}");
-
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "group";
             c.ObjectModificationType = ObjectModificationType.Add;
@@ -158,20 +158,20 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task CreateChannelCSEntryChanges(Group g, SchemaType schemaType, ImportContext context)
+        private async Task CreateChannelCSEntryChanges(string groupid, SchemaType schemaType, ImportContext context)
         {
             if (!context.Types.Types.Contains("channel"))
             {
                 return;
             }
 
-            GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
+            Beta.GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
 
-            var channels = await GraphHelper.GetChannels(client, g.Id, context.Token);
+            var channels = await GraphHelper.GetChannels(client, groupid, context.Token);
 
             foreach (var channel in channels)
             {
-                var members = await GraphHelper.GetChannelMembers(client, g.Id, channel.Id, context.Token);
+                var members = await GraphHelper.GetChannelMembers(client, groupid, channel.Id, context.Token);
 
                 CSEntryChange c = CSEntryChange.Create();
                 c.ObjectType = "channel";
@@ -280,7 +280,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private IGraphServiceGroupsCollectionRequest GetGroupEnumerationRequest(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)
+        private Beta.IGraphServiceGroupsCollectionRequest GetGroupEnumerationRequest(bool inDelta, WatermarkKeyedCollection importState, Beta.GraphServiceClient client, ImportContext context)
         {
             string filter = "resourceProvisioningOptions/Any(x:x eq 'Team')";
 
