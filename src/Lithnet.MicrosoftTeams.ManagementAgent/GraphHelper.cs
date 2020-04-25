@@ -27,7 +27,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         internal static async Task<List<DirectoryObject>> GetGroupMembers(GraphServiceClient client, string groupid, CancellationToken token)
         {
-            IGroupMembersCollectionWithReferencesPage result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Members.Request().GetAsync(token), token, 0 );
+            IGroupMembersCollectionWithReferencesPage result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Members.Request().GetAsync(token), token, 0);
 
             return await GraphHelper.GetMembers(result, token);
         }
@@ -203,9 +203,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
-        internal static async Task GetGroups(Beta.IGraphServiceGroupsCollectionRequest request, ITargetBlock<Beta.Group> target, CancellationToken cancellationToken)
+        internal static async Task GetGroups(Beta.IGraphServiceGroupsCollectionRequest request, ITargetBlock<Beta.Group> target, CancellationToken token)
         {
-            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(cancellationToken), cancellationToken, 0);
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
 
             foreach (Beta.Group group in page.CurrentPage)
             {
@@ -214,7 +214,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             while (page.NextPageRequest != null)
             {
-                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(cancellationToken), cancellationToken, 0);
+                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
                 foreach (Beta.Group group in page.CurrentPage)
                 {
@@ -223,9 +223,45 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        internal static async Task GetUsers(IGraphServiceUsersCollectionRequest request, ITargetBlock<User> target, CancellationToken cancellationToken)
+        internal static async Task<string> GetUsers(IUserDeltaRequest request, ITargetBlock<User> target, CancellationToken token)
         {
-            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(cancellationToken), cancellationToken,0 );
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
+
+            foreach (User user in page.CurrentPage)
+            {
+                target.Post(user);
+            }
+
+            return await GetUsers(page, target, token);
+        }
+
+        internal static async Task<string> GetUsers(GraphServiceClient client, string deltaLink, ITargetBlock<User> target, CancellationToken token)
+        {
+            IUserDeltaCollectionPage page = new UserDeltaCollectionPage();
+            page.InitializeNextPageRequest(client, deltaLink);
+            return await GetUsers(page, target, token);
+        }
+
+        internal static async Task<string> GetUsers(IUserDeltaCollectionPage page, ITargetBlock<User> target, CancellationToken token)
+        {
+            while (page.NextPageRequest != null)
+            {
+                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
+
+                foreach (User user in page.CurrentPage)
+                {
+                    target.Post(user);
+                }
+            }
+
+            page.AdditionalData.TryGetValue("@odata.deltaLink", out object link);
+
+            return link as string;
+        }
+
+        internal static async Task GetUsers(IGraphServiceUsersCollectionRequest request, ITargetBlock<User> target, CancellationToken token)
+        {
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
 
             foreach (User user in page.CurrentPage)
             {
@@ -234,7 +270,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             while (page.NextPageRequest != null)
             {
-                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(cancellationToken), cancellationToken, 0);
+                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
                 foreach (User user in page.CurrentPage)
                 {

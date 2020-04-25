@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Lithnet.Ecma2Framework;
 using Microsoft.MetadirectoryServices;
@@ -17,13 +16,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
-                IGraphServiceUsersCollectionRequest users = this.GetUserEnumerationRequest(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).Client, context);
-
                 BufferBlock<User> queue = new BufferBlock<User>(new DataflowBlockOptions() { CancellationToken = context.Token });
 
                 Task consumerTask = this.ConsumeObjects(context, type, queue);
 
-                await this.ProduceObjects(users, queue, context.Token);
+                await this.ProduceObjects(context, queue);
                 await consumerTask;
             }
             catch (Exception ex)
@@ -33,9 +30,39 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task ProduceObjects(IGraphServiceUsersCollectionRequest request, ITargetBlock<User> target, CancellationToken token)
+        private async Task ProduceObjects(ImportContext context, ITargetBlock<User> target)
         {
-            await GraphHelper.GetUsers(request, target, token);
+            var client = ((GraphConnectionContext)context.ConnectionContext).Client;
+            string newDeltaLink;
+
+            if (context.InDelta)
+            {
+                if (!context.IncomingWatermark.Contains("user"))
+                {
+                    throw new WarningNoWatermarkException();
+                }
+
+                Watermark watermark = context.IncomingWatermark["user"];
+
+                if (watermark.Value == null)
+                {
+                    throw new WarningNoWatermarkException();
+                }
+
+                newDeltaLink = await GraphHelper.GetUsers(client, watermark.Value, target, context.Token);
+            }
+            else
+            {
+                var request = client.Users.Delta().Request().Select("displayName,onPremisesSamAccountName,id,userPrincipalName");
+                newDeltaLink = await GraphHelper.GetUsers(request, target, context.Token);
+            }
+
+            if (newDeltaLink != null)
+            {
+                logger.Trace($"Got delta link {newDeltaLink}");
+                context.OutgoingWatermark.Add(new Watermark("user", newDeltaLink, "string"));
+            }
+
             target.Complete();
         }
 
@@ -79,9 +106,32 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "user";
-            c.ObjectModificationType = ObjectModificationType.Add;
             c.AnchorAttributes.Add(AnchorAttribute.Create("id", user.Id));
             c.DN = user.Id;
+
+            bool isRemoved = user.AdditionalData?.ContainsKey("@removed") ?? false;
+
+            if (inDelta)
+            {
+                if (isRemoved)
+                {
+                    c.ObjectModificationType = ObjectModificationType.Delete;
+                    return c;
+                }
+                else
+                {
+                    c.ObjectModificationType = ObjectModificationType.Replace;
+                }
+            }
+            else
+            {
+                if (isRemoved)
+                {
+                    return null;
+                }
+
+                c.ObjectModificationType = ObjectModificationType.Add;
+            }
 
             foreach (SchemaAttribute type in schemaType.Attributes)
             {
@@ -117,17 +167,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
 
             return c;
-        }
-
-        private IGraphServiceUsersCollectionRequest GetUserEnumerationRequest(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)
-        {
-            return client.Users.Request().Select(e => new
-            {
-                e.DisplayName,
-                e.OnPremisesSamAccountName,
-                e.Id,
-                e.UserPrincipalName,
-            });
         }
 
         public bool CanImport(SchemaType type)
