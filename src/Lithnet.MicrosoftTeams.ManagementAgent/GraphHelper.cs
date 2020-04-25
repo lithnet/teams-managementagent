@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 using Microsoft.Graph;
 using Newtonsoft.Json;
 using NLog;
@@ -16,49 +17,36 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     {
         private const int MaxJsonBatchRequests = 20;
 
-        private static TokenBucket rateLimiter = new TokenBucket("batch", MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestLimit, TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestWindowSeconds), MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestLimit);
+        private const int MaxRetry = 7;
+
+        private static TokenBucket rateLimiter = new TokenBucket("graph", MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestLimit, TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestWindowSeconds), MicrosoftTeamsMAConfigSection.Configuration.RateLimitRequestLimit);
 
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         internal static async Task<List<DirectoryObject>> GetGroupMembers(GraphServiceClient client, string groupid, CancellationToken token)
         {
-            IGroupMembersCollectionWithReferencesPage result = await client.Groups[groupid].Members
-                .Request()
-                .GetAsync(token);
+            IGroupMembersCollectionWithReferencesPage result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Members.Request().GetAsync(token), token, 0 );
 
             return await GraphHelper.GetMembers(result, token);
         }
 
         internal static async Task<List<DirectoryObject>> GetGroupOwners(GraphServiceClient client, string groupid, CancellationToken token)
         {
-            IGroupOwnersCollectionWithReferencesPage result = await client.Groups[groupid].Owners
-                .Request()
-                .GetAsync(token);
+            IGroupOwnersCollectionWithReferencesPage result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Owners.Request().GetAsync(token), token, 0);
 
             return await GraphHelper.GetOwners(result, token);
         }
 
-        internal static async Task<List<DirectoryObject>> GetMembers(IGroupMembersCollectionWithReferencesRequestBuilder builder, CancellationToken token)
+        internal static async Task<Team> GetTeam(GraphServiceClient client, string teamid, CancellationToken token)
         {
-            IGroupMembersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
-                .GetAsync(token);
-
-            return await GraphHelper.GetMembers(page, token);
-        }
-
-        internal static async Task<List<DirectoryObject>> GetOwners(IGroupOwnersCollectionWithReferencesRequestBuilder builder, CancellationToken token)
-        {
-            IGroupOwnersCollectionWithReferencesPage page = await builder.Request().Select(t => t.Id)
-                .GetAsync(token);
-
-            return await GraphHelper.GetOwners(page, token);
+            return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().GetAsync(token), token, 0);
         }
 
         internal static async Task<List<Channel>> GetChannels(GraphServiceClient client, string groupid, CancellationToken token)
         {
             List<Channel> channels = new List<Channel>();
 
-            var page = await client.Teams[groupid].Channels.Request().GetAsync(token);
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupid].Channels.Request().GetAsync(token), token, 0);
 
             if (page?.Count > 0)
             {
@@ -66,7 +54,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 while (page.NextPageRequest != null)
                 {
-                    page = await page.NextPageRequest.GetAsync(token);
+                    page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
                     channels.AddRange(page.CurrentPage);
                 }
@@ -79,7 +67,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             List<ConversationMember> members = new List<ConversationMember>();
 
-            var page = await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token);
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token), token, 0);
 
             if (page?.Count > 0)
             {
@@ -87,7 +75,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 while (page.NextPageRequest != null)
                 {
-                    page = await page.NextPageRequest.GetAsync(token);
+                    page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
                     members.AddRange(page.CurrentPage);
                 }
@@ -106,7 +94,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 while (page.NextPageRequest != null)
                 {
-                    page = await page.NextPageRequest.GetAsync(token);
+                    page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
                     members.AddRange(page.CurrentPage);
                 }
@@ -125,7 +113,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 while (page.NextPageRequest != null)
                 {
-                    page = await page.NextPageRequest.GetAsync(token);
+                    page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
                     members.AddRange(page.CurrentPage);
                 }
@@ -213,6 +201,88 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
+        internal static async Task GetGroups(IGraphServiceGroupsCollectionRequest request, ITargetBlock<Group> target, CancellationToken cancellationToken)
+        {
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(cancellationToken), cancellationToken, 0);
+
+            foreach (Group group in page.CurrentPage)
+            {
+                target.Post(group);
+            }
+
+            while (page.NextPageRequest != null)
+            {
+                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(cancellationToken), cancellationToken, 0);
+
+                foreach (Group group in page.CurrentPage)
+                {
+                    target.Post(group);
+                }
+            }
+        }
+
+        internal static async Task GetUsers(IGraphServiceUsersCollectionRequest request, ITargetBlock<User> target, CancellationToken cancellationToken)
+        {
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(cancellationToken), cancellationToken,0 );
+
+            foreach (User user in page.CurrentPage)
+            {
+                target.Post(user);
+            }
+
+            while (page.NextPageRequest != null)
+            {
+                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(cancellationToken), cancellationToken, 0);
+
+                foreach (User user in page.CurrentPage)
+                {
+                    target.Post(user);
+                }
+            }
+        }
+
+        internal static async Task DeleteGroup(GraphServiceClient client, string id, CancellationToken token)
+        {
+            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[id].Request().DeleteAsync(token), token, 1);
+        }
+
+        internal static async Task<Team> CreateTeam(GraphServiceClient client, string groupid, Team team, CancellationToken token)
+        {
+            return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Team.Request().PutAsync(team, token), token, 1);
+        }
+
+        internal static async Task<Group> CreateGroup(GraphServiceClient client, Group group, CancellationToken token)
+        {
+            return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups.Request().AddAsync(group, token), token, 1);
+        }
+
+        internal static async Task<string> GetGroupIdByMailNickname(GraphServiceClient client, string mailNickname, CancellationToken token)
+        {
+            var collectionPage = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups.Request().Filter($"mailNickname eq '{mailNickname}'").Select("id").GetAsync(token), token, 0);
+
+            if (collectionPage.Count == 0)
+            {
+                return null;
+            }
+
+            if (collectionPage.Count > 1)
+            {
+                throw new InvalidOperationException();
+            }
+
+            return collectionPage[0].Id;
+        }
+
+        internal static async Task UpdateTeam(GraphServiceClient client, string id, Team team, CancellationToken token)
+        {
+            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[id].Request().UpdateAsync(team, token), token, 1);
+        }
+
+        internal static async Task UpdateGroup(GraphServiceClient client, string id, Group group, CancellationToken token)
+        {
+            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[id].Request().UpdateAsync(group, token), token, 1);
+        }
+
         private static async Task SubmitAsBatches(GraphServiceClient client, List<BatchRequestStep> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
         {
             BatchRequestContent content = new BatchRequestContent();
@@ -239,9 +309,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int retryCount = 1)
         {
-            rateLimiter.Consume(content.BatchRequestSteps.Count + 1, token);
-
-            BatchResponseContent response = await client.Batch.Request().PostAsync(content, token);
+            BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, 21);
 
             List<Exception> exceptions = new List<Exception>();
             List<BatchRequestStep> stepsToRetry = new List<BatchRequestStep>();
@@ -349,6 +417,87 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private static StringContent CreateStringContentForMemberId(string member)
         {
             return new StringContent("{\"@odata.id\":\"https://graph.microsoft.com/beta/users/" + member + "\"}", Encoding.UTF8, "application/json");
+        }
+
+        private static bool IsRetryable(Exception ex)
+        {
+            return ex is TimeoutException || ex is ServiceException se && (se.StatusCode == HttpStatusCode.NotFound || se.StatusCode == HttpStatusCode.BadGateway);
+        }
+
+        internal static T ExecuteWithRetry<T>(Func<T> task, CancellationToken token)
+        {
+            return ExecuteWithRetryAndRateLimit(task, token, 0);
+        }
+
+        internal static async Task<T> ExecuteWithRetry<T>(Func<Task<T>> task, CancellationToken token)
+        {
+            return await ExecuteWithRetryAndRateLimit(task, token, 0);
+        }
+
+        internal static T ExecuteWithRetryAndRateLimit<T>(Func<T> task, CancellationToken token, int requests)
+        {
+            T result = default(T);
+
+            bool success = false;
+            int retryCount = 0;
+
+            while (!success)
+            {
+                try
+                {
+                    rateLimiter.Consume(requests, token);
+                    result = task();
+                    success = true;
+                }
+                catch (ServiceException ex)
+                {
+                    if (IsRetryable(ex) && retryCount <= MaxRetry)
+                    {
+                        retryCount++;
+                        logger.Warn(ex, $"A retryable error was detected (attempt: {retryCount})");
+                        Task.Delay(TimeSpan.FromSeconds(5 * retryCount), token).Wait(token);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        internal static async Task<T> ExecuteWithRetryAndRateLimit<T>(Func<Task<T>> task, CancellationToken token, int requests)
+        {
+            T result = default(T);
+
+            bool success = false;
+            int retryCount = 0;
+
+            while (!success)
+            {
+                try
+                {
+                    rateLimiter.Consume(requests, token);
+                    result = await task();
+                    success = true;
+                }
+                catch (ServiceException ex)
+                {
+                    if (IsRetryable(ex) && retryCount <= MaxRetry)
+                    {
+                        retryCount++;
+                        logger.Warn(ex, $"A retryable error was detected (attempt: {retryCount})");
+                        Task.Delay(TimeSpan.FromSeconds(5 * retryCount), token).Wait(token);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            return result;
         }
     }
 }

@@ -1,16 +1,11 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Lithnet.Ecma2Framework;
-using Lithnet.MetadirectoryServices;
 using Microsoft.MetadirectoryServices;
 using NLog;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Graph;
-using Logger = NLog.Logger;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
@@ -22,16 +17,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
-                IGraphServiceUsersCollectionPage users = await this.GetUserEnumerable(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).Client, context);
-                BufferBlock<User> queue = new BufferBlock<User>();
+                IGraphServiceUsersCollectionRequest users = this.GetUserEnumerationRequest(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).Client, context);
 
-                Task consumer = this.ConsumeObjects(context, type, queue);
+                BufferBlock<User> queue = new BufferBlock<User>(new DataflowBlockOptions() { CancellationToken = context.Token });
 
-                // Post source data to the dataflow block.
-                await this.ProduceObjects(users, queue, context.CancellationTokenSource.Token).ConfigureAwait(false);
+                Task consumerTask = this.ConsumeObjects(context, type, queue);
 
-                // Wait for the consumer to process all data.
-                await consumer.ConfigureAwait(false);
+                await this.ProduceObjects(users, queue, context.Token);
+                await consumerTask;
             }
             catch (Exception ex)
             {
@@ -40,39 +33,29 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task ProduceObjects(IGraphServiceUsersCollectionPage page, ITargetBlock<User> target, CancellationToken token)
+        private async Task ProduceObjects(IGraphServiceUsersCollectionRequest request, ITargetBlock<User> target, CancellationToken token)
         {
-            foreach (User user in page.CurrentPage)
-            {
-                target.Post(user);
-            }
-
-            while (page.NextPageRequest != null)
-            {
-                page = await page.NextPageRequest.GetAsync(token);
-
-                foreach (User user in page.CurrentPage)
-                {
-                    target.Post(user);
-                }
-            }
-
+            await GraphHelper.GetUsers(request, target, token);
             target.Complete();
         }
 
         private async Task ConsumeObjects(ImportContext context, SchemaType type, ISourceBlock<User> source)
         {
-            while (await source.OutputAvailableAsync(context.CancellationTokenSource.Token))
+            var edfo = new ExecutionDataflowBlockOptions
             {
-                User user = source.Receive();
+                MaxDegreeOfParallelism = MicrosoftTeamsMAConfigSection.Configuration.ImportThreads,
+                CancellationToken = context.Token,
+            };
 
+            ActionBlock<User> action = new ActionBlock<User>(user =>
+            {
                 try
                 {
                     CSEntryChange c = this.UserToCSEntryChange(context.InDelta, type, user, context);
 
                     if (c != null)
                     {
-                        context.ImportItems.Add(c, context.CancellationTokenSource.Token);
+                        context.ImportItems.Add(c, context.Token);
                     }
                 }
                 catch (Exception ex)
@@ -83,11 +66,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     csentry.ErrorCodeImport = MAImportError.ImportErrorCustomContinueRun;
                     csentry.ErrorDetail = ex.StackTrace;
                     csentry.ErrorName = ex.Message;
-                    context.ImportItems.Add(csentry, context.CancellationTokenSource.Token);
+                    context.ImportItems.Add(csentry, context.Token);
                 }
+            }, edfo);
 
-                context.CancellationTokenSource.Token.ThrowIfCancellationRequested();
-            }
+            source.LinkTo(action, new DataflowLinkOptions() { PropagateCompletion = true });
+
+            await action.Completion;
         }
 
         private CSEntryChange UserToCSEntryChange(bool inDelta, SchemaType schemaType, User user, ImportContext context)
@@ -136,15 +121,15 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return c;
         }
 
-        private async Task<IGraphServiceUsersCollectionPage> GetUserEnumerable(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)
+        private IGraphServiceUsersCollectionRequest GetUserEnumerationRequest(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)
         {
-            return await client.Users.Request().Select(e => new
+            return client.Users.Request().Select(e => new
             {
                 e.DisplayName,
                 e.OnPremisesSamAccountName,
                 e.Id,
                 e.UserPrincipalName,
-            }).GetAsync(context.CancellationTokenSource.Token);
+            });
         }
 
         public bool CanImport(SchemaType type)

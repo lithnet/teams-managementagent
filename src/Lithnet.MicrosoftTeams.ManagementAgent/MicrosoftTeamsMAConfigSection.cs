@@ -11,6 +11,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private const string PropPostGroupCreateDelay = "post-group-create-delay";
         private const string PropRateLimitRequestWindow = "rate-limit-request-window-seconds";
         private const string PropRateLimitRequestLimit = "rate-limit-request-limit";
+        private const string PropDeleteAddConflictingGroup = "delete-add-conflicting-group";
 
         internal static MicrosoftTeamsMAConfigSection GetConfiguration()
         {
@@ -48,5 +49,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropRateLimitRequestLimit, IsRequired = false, DefaultValue = 3000)]
         public int RateLimitRequestLimit => (int)this[MicrosoftTeamsMAConfigSection.PropRateLimitRequestLimit];
+
+        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropDeleteAddConflictingGroup, IsRequired = false, DefaultValue = false)]
+        public bool DeleteAddConflictingGroup => (bool)this[MicrosoftTeamsMAConfigSection.PropDeleteAddConflictingGroup];
     }
 }

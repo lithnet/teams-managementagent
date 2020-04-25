@@ -19,16 +19,15 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
-                IGraphServiceGroupsCollectionPage groups = await this.GetGroupEnumerable(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).Client, context);
-                BufferBlock<Group> groupQueue = new BufferBlock<Group>(new DataflowBlockOptions() { CancellationToken = context.CancellationTokenSource.Token });
+                IGraphServiceGroupsCollectionRequest groups = this.GetGroupEnumerationRequest(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).Client, context);
 
-                Task groupConsumerTask = this.ConsumeQueue(context, type, groupQueue);
+                BufferBlock<Group> groupQueue = new BufferBlock<Group>(new DataflowBlockOptions() { CancellationToken = context.Token });
 
-                // Post source data to the dataflow block.
-                await this.ProduceObjects(groups, groupQueue, context.CancellationTokenSource.Token);
+                Task consumerTask = this.ConsumeQueue(context, type, groupQueue);
 
-                // Wait for the consumer to process all data.
-                await groupConsumerTask;
+                await this.ProduceObjects(groups, groupQueue, context.Token);
+
+                await consumerTask;
             }
             catch (Exception ex)
             {
@@ -37,23 +36,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task ProduceObjects(IGraphServiceGroupsCollectionPage page, ITargetBlock<Group> target, CancellationToken cancellationToken)
+        private async Task ProduceObjects(IGraphServiceGroupsCollectionRequest request, ITargetBlock<Group> target, CancellationToken cancellationToken)
         {
-            foreach (Group group in page.CurrentPage)
-            {
-                target.Post(group);
-            }
-
-            while (page.NextPageRequest != null)
-            {
-                page = await page.NextPageRequest.GetAsync(cancellationToken);
-
-                foreach (Group group in page.CurrentPage)
-                {
-                    target.Post(group);
-                }
-            }
-
+            await GraphHelper.GetGroups(request, target, cancellationToken);
             target.Complete();
         }
 
@@ -62,7 +47,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             var edfo = new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = MicrosoftTeamsMAConfigSection.Configuration.ImportThreads,
-                CancellationToken = context.CancellationTokenSource.Token,
+                CancellationToken = context.Token,
             };
 
             ActionBlock<Group> action = new ActionBlock<Group>(async group =>
@@ -75,7 +60,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     {
                         await this.GroupMemberToCSEntryChange(c, type, context);
                         await this.TeamToCSEntryChange(c, type, context).ConfigureAwait(false);
-                        context.ImportItems.Add(c, context.CancellationTokenSource.Token);
+                        context.ImportItems.Add(c, context.Token);
                         await this.CreateChannelCSEntryChanges(group, type, context);
                     }
                 }
@@ -87,10 +72,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     csentry.ErrorCodeImport = MAImportError.ImportErrorCustomContinueRun;
                     csentry.ErrorDetail = ex.StackTrace;
                     csentry.ErrorName = ex.Message;
-                    context.ImportItems.Add(csentry, context.CancellationTokenSource.Token);
+                    context.ImportItems.Add(csentry, context.Token);
                 }
-
-                context.CancellationTokenSource.Token.ThrowIfCancellationRequested();
             }, edfo);
 
             source.LinkTo(action, new DataflowLinkOptions() { PropagateCompletion = true });
@@ -157,7 +140,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (schemaType.Attributes.Contains("member"))
             {
-                List<DirectoryObject> members = await GraphHelper.GetGroupMembers(client, c.DN, context.CancellationTokenSource.Token);
+                List<DirectoryObject> members = await GraphHelper.GetGroupMembers(client, c.DN, context.Token);
                 if (members.Count > 0)
                 {
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
@@ -166,7 +149,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (schemaType.Attributes.Contains("owner"))
             {
-                List<DirectoryObject> owners = await GraphHelper.GetGroupOwners(client, c.DN, context.CancellationTokenSource.Token);
+                List<DirectoryObject> owners = await GraphHelper.GetGroupOwners(client, c.DN, context.Token);
 
                 if (owners.Count > 0)
                 {
@@ -184,18 +167,18 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
 
-            var channels = await GraphHelper.GetChannels(client, g.Id, context.CancellationTokenSource.Token);
+            var channels = await GraphHelper.GetChannels(client, g.Id, context.Token);
 
             foreach (var channel in channels)
             {
-                var members = await GraphHelper.GetChannelMembers(client, g.Id, channel.Id, context.CancellationTokenSource.Token);
+                var members = await GraphHelper.GetChannelMembers(client, g.Id, channel.Id, context.Token);
 
                 CSEntryChange c = CSEntryChange.Create();
                 c.ObjectType = "channel";
                 c.ObjectModificationType = ObjectModificationType.Add;
                 c.AnchorAttributes.Add(AnchorAttribute.Create("id", channel.Id));
                 c.DN = channel.Id;
-                
+
                 c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("displayName", channel.DisplayName));
 
                 if (!string.IsNullOrWhiteSpace(channel.Description))
@@ -208,7 +191,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
                 }
 
-                context.ImportItems.Add(c, context.CancellationTokenSource.Token);
+                context.ImportItems.Add(c, context.Token);
             }
         }
 
@@ -216,8 +199,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
 
-            Team  team = await client.Teams[c.DN].Request().GetAsync(context.CancellationTokenSource.Token);
-            
+            Team team = await GraphHelper.GetTeam(client, c.DN, context.Token);
+
             foreach (SchemaAttribute type in schemaType.Attributes)
             {
                 switch (type.Name)
@@ -297,7 +280,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task<IGraphServiceGroupsCollectionPage> GetGroupEnumerable(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)
+        private IGraphServiceGroupsCollectionRequest GetGroupEnumerationRequest(bool inDelta, WatermarkKeyedCollection importState, GraphServiceClient client, ImportContext context)
         {
             string filter = "resourceProvisioningOptions/Any(x:x eq 'Team')";
 
@@ -308,7 +291,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             GroupImportProvider.logger.Trace($"Enumerating groups with filter {filter}");
 
-            return await client.Groups.Request()
+            return client.Groups.Request()
                 .Select(e => new
                 {
                     e.DisplayName,
@@ -318,8 +301,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     e.Description,
                     e.Visibility,
                 })
-                .Filter(filter)
-                .GetAsync(context.CancellationTokenSource.Token);
+                .Filter(filter);
         }
 
         public bool CanImport(SchemaType type)

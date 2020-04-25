@@ -15,7 +15,7 @@ using Logger = NLog.Logger;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
-    public class GraphConnectionContext
+    public class GraphConnectionContext : IConnectionContext
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
@@ -24,13 +24,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         internal static GraphConnectionContext GetConnectionContext(KeyedCollection<string, ConfigParameter> configParameters)
         {
             GraphConnectionContext.logger.Info($"Setting up connection to {configParameters[ConfigParameterNames.TenantDomain].Value}");
-
-            //foreach (LoggingRule rule in LogManager.Configuration.LoggingRules)
-            //{
-            //    rule.EnableLoggingForLevel( NLog.LogLevel.Trace);
-            //}
-
-            //LogManager.ReconfigExistingLoggers();
 
             System.Net.ServicePointManager.DefaultConnectionLimit = MicrosoftTeamsMAConfigSection.Configuration.ConnectionLimit;
             GlobalSettings.ExportThreadCount = MicrosoftTeamsMAConfigSection.Configuration.ExportThreads;

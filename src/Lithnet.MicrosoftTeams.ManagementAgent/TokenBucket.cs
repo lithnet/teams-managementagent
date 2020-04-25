@@ -49,12 +49,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             if (tokensRequired <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(tokensRequired), "Number of tokens required must be greater than zero");
+                return true;
             }
 
             if (tokensRequired > this.Capacity)
             {
-                throw new ArgumentOutOfRangeException(nameof(tokensRequired), "Number of tokens required is greated than the capacity of the bucket");
+                throw new ArgumentOutOfRangeException(nameof(tokensRequired), "Number of tokens required is greater than the capacity of the bucket");
             }
 
             lock (this.consumerLock)

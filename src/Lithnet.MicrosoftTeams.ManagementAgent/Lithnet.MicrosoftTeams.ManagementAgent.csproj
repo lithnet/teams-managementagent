@@ -50,8 +50,8 @@
     <Reference Include="Costura, Version=2.0.1.0, Culture=neutral, PublicKeyToken=9919ef960d84173d, processorArchitecture=MSIL">
       <HintPath>..\packages\Costura.Fody.2.0.1\lib\net452\Costura.dll</HintPath>
     </Reference>
-    <Reference Include="Lithnet.Ecma2Framework, Version=1.0.7416.24213, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Lithnet.Ecma2Framework.1.0.7416.24213\lib\net461\Lithnet.Ecma2Framework.dll</HintPath>
+    <Reference Include="Lithnet.Ecma2Framework, Version=1.0.7420.18678, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lithnet.Ecma2Framework.1.0.7420.18678\lib\net461\Lithnet.Ecma2Framework.dll</HintPath>
     </Reference>
     <Reference Include="Lithnet.MetadirectoryServices, Version=1.0.6730.35901, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Lithnet.MetadirectoryServices.1.0.6730.35901\lib\net461\Lithnet.MetadirectoryServices.dll</HintPath>

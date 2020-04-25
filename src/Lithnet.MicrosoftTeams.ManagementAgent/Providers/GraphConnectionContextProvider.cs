@@ -11,7 +11,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
     public class GraphConnectionContextProvider : IConnectionContextProvider
     {
-        public object GetConnectionContext(KeyedCollection<string, ConfigParameter> configParameters, ConnectionContextOperationType contextOperationType)
+        public IConnectionContext GetConnectionContext(KeyedCollection<string, ConfigParameter> configParameters, ConnectionContextOperationType contextOperationType)
         {
             return GraphConnectionContext.GetConnectionContext(configParameters);
         }
