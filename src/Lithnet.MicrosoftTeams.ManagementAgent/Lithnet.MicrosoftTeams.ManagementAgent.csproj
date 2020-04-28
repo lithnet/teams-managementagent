@@ -136,7 +136,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConfigParameterNames.cs" />
-    <Compile Include="GraphHelper.cs" />
+    <Compile Include="Graph\GraphHelper.cs" />
+    <Compile Include="Graph\GraphHelperGroups.cs" />
+    <Compile Include="Graph\GraphHelperTeams.cs" />
+    <Compile Include="Graph\GraphHelperUsers.cs" />
     <Compile Include="Providers\CapabilitiesProvider.cs" />
     <Compile Include="Providers\Group\GroupExportProvider.cs" />
     <Compile Include="Providers\ConfigParametersProvider.cs" />

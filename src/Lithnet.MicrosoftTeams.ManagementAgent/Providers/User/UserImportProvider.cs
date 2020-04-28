@@ -49,11 +49,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     throw new WarningNoWatermarkException();
                 }
 
-                newDeltaLink = await GraphHelper.GetUsers(client, watermark.Value, target, context.Token);
+                newDeltaLink = await GraphHelperUsers.GetUsers(client, watermark.Value, target, context.Token);
             }
             else
             {
-                newDeltaLink = await GraphHelper.GetUsers(client, target, context.Token, "displayName", "onPremisesSamAccountName", "id", "userPrincipalName");
+                newDeltaLink = await GraphHelperUsers.GetUsers(client, target, context.Token, "displayName", "onPremisesSamAccountName", "id", "userPrincipalName");
             }
 
             if (newDeltaLink != null)

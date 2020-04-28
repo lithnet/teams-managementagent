@@ -57,7 +57,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             try
             {
-                await GraphHelper.DeleteGroup(client, csentry.DN, context.Token);
+                await GraphHelperGroups.DeleteGroup(client, csentry.DN, context.Token);
             }
             catch (ServiceException ex)
             {
@@ -93,7 +93,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     {
                         GroupExportProvider.logger.Error($"{csentry.DN}: An exception occurred while creating the team, rolling back the group by deleting it");
                         await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay));
-                        await GraphHelper.DeleteGroup(client, result.Id, CancellationToken.None);
+                        await GraphHelperGroups.DeleteGroup(client, result.Id, CancellationToken.None);
                         GroupExportProvider.logger.Info($"{csentry.DN}: The group was deleted");
                     }
                 }
@@ -167,7 +167,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             GroupExportProvider.logger.Info($"{csentry.DN}: Creating team for group {groupId} using template {template ?? "standard"}");
             GroupExportProvider.logger.Trace($"{csentry.DN}: Team data: {JsonConvert.SerializeObject(team)}");
 
-            Team tresult = await GraphHelper.CreateTeam(client, groupId, team, context.Token);
+            Team tresult = await GraphHelperTeams.CreateTeam(client, groupId, team, context.Token);
 
             GroupExportProvider.logger.Info($"{csentry.DN}: Created team {tresult?.Id ?? "<unknown id>"} for group {groupId}");
         }
@@ -244,7 +244,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             Group result;
             try
             {
-                result = await GraphHelper.CreateGroup(client, group, context.Token);
+                result = await GraphHelperGroups.CreateGroup(client, group, context.Token);
             }
             catch (ServiceException ex)
             {
@@ -253,10 +253,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     string mailNickname = csentry.GetValueAdd<string>("mailNickname");
                     logger.Warn($"{csentry.DN}: Delete/Adding conflicting group with mailNickname '{mailNickname}'");
 
-                    string existingGroup = await GraphHelper.GetGroupIdByMailNickname(client, mailNickname, context.Token);
-                    await GraphHelper.DeleteGroup(client, existingGroup, context.Token);
+                    string existingGroup = await GraphHelperGroups.GetGroupIdByMailNickname(client, mailNickname, context.Token);
+                    await GraphHelperGroups.DeleteGroup(client, existingGroup, context.Token);
                     await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay));
-                    result = await GraphHelper.CreateGroup(client, group, context.Token);
+                    result = await GraphHelperGroups.CreateGroup(client, group, context.Token);
                 }
                 else
                 {
@@ -276,7 +276,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 GroupExportProvider.logger.Error(ex, $"{csentry.DN}: An exception occurred while modifying the membership, rolling back the group by deleting it");
                 await Task.Delay(TimeSpan.FromSeconds(5));
-                await GraphHelper.DeleteGroup(client, csentry.DN, CancellationToken.None);
+                await GraphHelperGroups.DeleteGroup(client, csentry.DN, CancellationToken.None);
                 GroupExportProvider.logger.Info($"{csentry.DN}: The group was deleted");
                 throw;
             }
@@ -293,13 +293,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 if (deferredMembers.Count > 0)
                 {
                     GroupExportProvider.logger.Trace($"{csentryDN}: Adding {deferredMembers.Count} deferred members");
-                    await GraphHelper.AddGroupMembers(client, result.Id, deferredMembers, true, context.Token);
+                    await GraphHelperGroups.AddGroupMembers(client, result.Id, deferredMembers, true, context.Token);
                 }
 
                 if (deferredOwners.Count > 0)
                 {
                     GroupExportProvider.logger.Trace($"{csentryDN}: Adding {deferredOwners.Count} deferred owners");
-                    await GraphHelper.AddGroupOwners(client, result.Id, deferredOwners, true, context.Token);
+                    await GraphHelperGroups.AddGroupOwners(client, result.Id, deferredOwners, true, context.Token);
                 }
 
                 success = true;
@@ -431,7 +431,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 GroupExportProvider.logger.Trace($"{csentry.DN}:Updating team data: {JsonConvert.SerializeObject(team)}");
 
-                await GraphHelper.UpdateTeam(client, csentry.DN, team, context.Token);
+                await GraphHelperTeams.UpdateTeam(client, csentry.DN, team, context.Token);
 
                 GroupExportProvider.logger.Info($"{csentry.DN}: Updated team");
             }
@@ -494,7 +494,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             if (changed)
             {
                 GroupExportProvider.logger.Trace($"{csentry.DN}:Updating group data: {JsonConvert.SerializeObject(group)}");
-                await GraphHelper.UpdateGroup(client, csentry.DN, group, context.Token);
+                await GraphHelperGroups.UpdateGroup(client, csentry.DN, group, context.Token);
                 GroupExportProvider.logger.Info($"{csentry.DN}: Updated group {csentry.DN}");
             }
         }
@@ -510,26 +510,26 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 if (change.Name == "member")
                 {
-                    List<DirectoryObject> result = await GraphHelper.GetGroupMembers(client, c.DN, context.Token);
+                    List<DirectoryObject> result = await GraphHelperGroups.GetGroupMembers(client, c.DN, context.Token);
                     valueDeletes = result.Select(t => t.Id).ToList();
                 }
                 else
                 {
-                    List<DirectoryObject> result = await GraphHelper.GetGroupOwners(client, c.DN, context.Token);
+                    List<DirectoryObject> result = await GraphHelperGroups.GetGroupOwners(client, c.DN, context.Token);
                     valueDeletes = result.Select(t => t.Id).ToList();
                 }
             }
 
             if (change.Name == "member")
             {
-                await GraphHelper.AddGroupMembers(client, c.DN, valueAdds, true, context.Token);
-                await GraphHelper.RemoveGroupMembers(client, c.DN, valueDeletes, true, context.Token);
+                await GraphHelperGroups.AddGroupMembers(client, c.DN, valueAdds, true, context.Token);
+                await GraphHelperGroups.RemoveGroupMembers(client, c.DN, valueDeletes, true, context.Token);
                 logger.Info($"Membership modification for group {c.DN} completed. Members added: {valueAdds.Count}, members removed: {valueDeletes.Count}");
             }
             else
             {
-                await GraphHelper.AddGroupOwners(client, c.DN, valueAdds, true, context.Token);
-                await GraphHelper.RemoveGroupOwners(client, c.DN, valueDeletes, true, context.Token);
+                await GraphHelperGroups.AddGroupOwners(client, c.DN, valueAdds, true, context.Token);
+                await GraphHelperGroups.RemoveGroupOwners(client, c.DN, valueDeletes, true, context.Token);
                 logger.Info($"Owner modification for group {c.DN} completed. Owners added: {valueAdds.Count}, owners removed: {valueDeletes.Count}");
             }
         }

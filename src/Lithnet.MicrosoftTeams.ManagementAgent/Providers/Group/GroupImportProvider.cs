@@ -41,7 +41,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private async Task ProduceObjects(ImportContext context, ITargetBlock<Beta.Group> target)
         {
             var client = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
-            await GraphHelper.GetGroups(client, target, context.ConfigParameters[ConfigParameterNames.FilterQuery].Value, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
+            await GraphHelperGroups.GetGroups(client, target, context.ConfigParameters[ConfigParameterNames.FilterQuery].Value, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
             target.Complete();
         }
 
@@ -74,11 +74,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     throw new WarningNoWatermarkException();
                 }
 
-                newDeltaLink = await GraphHelper.GetGroups(client, watermark.Value, target, context.Token);
+                newDeltaLink = await GraphHelperGroups.GetGroups(client, watermark.Value, target, context.Token);
             }
             else
             {
-                newDeltaLink = await GraphHelper.GetGroups(client, target, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility", "members", "owners");
+                newDeltaLink = await GraphHelperGroups.GetGroups(client, target, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility", "members", "owners");
             }
 
             if (newDeltaLink != null)
@@ -258,7 +258,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (schemaType.Attributes.Contains("member"))
             {
-                List<DirectoryObject> members = await GraphHelper.GetGroupMembers(client, c.DN, context.Token);
+                List<DirectoryObject> members = await GraphHelperGroups.GetGroupMembers(client, c.DN, context.Token);
                 if (members.Count > 0)
                 {
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
@@ -267,7 +267,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (schemaType.Attributes.Contains("owner"))
             {
-                List<DirectoryObject> owners = await GraphHelper.GetGroupOwners(client, c.DN, context.Token);
+                List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(client, c.DN, context.Token);
 
                 if (owners.Count > 0)
                 {
@@ -285,11 +285,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             Beta.GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
 
-            var channels = await GraphHelper.GetChannels(client, groupid, context.Token);
+            var channels = await GraphHelperTeams.GetChannels(client, groupid, context.Token);
 
             foreach (var channel in channels)
             {
-                var members = await GraphHelper.GetChannelMembers(client, groupid, channel.Id, context.Token);
+                var members = await GraphHelperTeams.GetChannelMembers(client, groupid, channel.Id, context.Token);
 
                 CSEntryChange c = CSEntryChange.Create();
                 c.ObjectType = "channel";
@@ -317,7 +317,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
 
-            Team team = await GraphHelper.GetTeam(client, c.DN, context.Token);
+            Team team = await GraphHelperTeams.GetTeam(client, c.DN, context.Token);
 
             foreach (SchemaAttribute type in schemaType.Attributes)
             {
