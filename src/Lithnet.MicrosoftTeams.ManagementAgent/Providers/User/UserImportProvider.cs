@@ -53,8 +53,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
             else
             {
-                var request = client.Users.Delta().Request().Select("displayName,onPremisesSamAccountName,id,userPrincipalName");
-                newDeltaLink = await GraphHelper.GetUsers(request, target, context.Token);
+                newDeltaLink = await GraphHelper.GetUsers(client, target, context.Token, "displayName", "onPremisesSamAccountName", "id", "userPrincipalName");
             }
 
             if (newDeltaLink != null)

@@ -10,6 +10,8 @@ using Lithnet.Ecma2Framework;
 using Microsoft.MetadirectoryServices;
 using NLog;
 using Microsoft.Graph;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
@@ -21,13 +23,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
-                Beta.IGraphServiceGroupsCollectionRequest groups = this.GetGroupEnumerationRequest(context.InDelta, context.IncomingWatermark, ((GraphConnectionContext)context.ConnectionContext).BetaClient, context);
-
-                BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions() { CancellationToken = context.Token });
+                BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions { CancellationToken = context.Token });
 
                 Task consumerTask = this.ConsumeQueue(context, type, groupQueue);
 
-                await this.ProduceObjects(groups, groupQueue, context.Token);
+                await this.ProduceObjects(context, groupQueue);
 
                 await consumerTask;
             }
@@ -38,9 +38,55 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task ProduceObjects(Beta.IGraphServiceGroupsCollectionRequest request, ITargetBlock<Beta.Group> target, CancellationToken cancellationToken)
+        private async Task ProduceObjects(ImportContext context, ITargetBlock<Beta.Group> target)
         {
-            await GraphHelper.GetGroups(request, target, cancellationToken);
+            var client = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
+            await GraphHelper.GetGroups(client, target, context.ConfigParameters[ConfigParameterNames.FilterQuery].Value, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
+            target.Complete();
+        }
+
+        /// <summary>
+        /// Group delta imports have a few problems that need to be resolved.
+        /// 1. You can't currently filter on teams-type groups only. You have to get all groups and then filter yourself
+        /// 2. This isn't so much of a problem apart from that you have to specify your attribute selection on the initial query to include members and owners. This means you get all members and owners for all groups
+        /// 3. Membership information comes in chunks of 20 members, however chunks for each group can be returned in any order. This breaks the way FIM works, as we would have to hold all group objects in memory, wait to see if duplicates arrive in the stream, merge them, and only once we have all groups with all members, confidently pass them back to the sync engine in one massive batch
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="target"></param>
+        /// <returns></returns>
+        private async Task ProduceObjectsDelta(ImportContext context, ITargetBlock<Group> target)
+        {
+            var client = ((GraphConnectionContext)context.ConnectionContext).Client;
+
+            string newDeltaLink;
+
+            if (context.InDelta)
+            {
+                if (!context.IncomingWatermark.Contains("group"))
+                {
+                    throw new WarningNoWatermarkException();
+                }
+
+                Watermark watermark = context.IncomingWatermark["group"];
+
+                if (watermark.Value == null)
+                {
+                    throw new WarningNoWatermarkException();
+                }
+
+                newDeltaLink = await GraphHelper.GetGroups(client, watermark.Value, target, context.Token);
+            }
+            else
+            {
+                newDeltaLink = await GraphHelper.GetGroups(client, target, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility", "members", "owners");
+            }
+
+            if (newDeltaLink != null)
+            {
+                logger.Trace($"Got delta link {newDeltaLink}");
+                context.OutgoingWatermark.Add(new Watermark("group", newDeltaLink, "string"));
+            }
+
             target.Complete();
         }
 
@@ -56,6 +102,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 try
                 {
+                    //if (this.ShouldFilterDelta(group, context))
+                    //{
+                    //    return;
+                    //}
+
                     CSEntryChange c = this.GroupToCSEntryChange(group, type, context);
 
                     if (c != null)
@@ -83,13 +134,80 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await action.Completion;
         }
 
+        private bool ShouldFilterDelta(Beta.Group group, ImportContext context)
+        {
+            string filter = context.ConfigParameters[ConfigParameterNames.FilterQuery].Value;
+
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                if (group.MailNickname == null || !group.MailNickname.StartsWith(filter, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.Trace($"Filtering group {group.Id} with nickname {group.MailNickname}");
+                    return true;
+                }
+            }
+
+            if (group.AdditionalData == null)
+            {
+                logger.Trace($"Filtering non-team group {group.Id} with nickname {group.MailNickname}");
+                return true;
+            }
+
+            if (!context.InDelta && group.AdditionalData.ContainsKey("@removed"))
+            {
+                logger.Trace($"Filtering deleted group {group.Id} with nickname {group.MailNickname}");
+                return true;
+            }
+
+            if (!group.AdditionalData.ContainsKey("resourceProvisioningOptions"))
+            {
+                logger.Trace($"Filtering non-team group {group.Id} with nickname {group.MailNickname}");
+                return true;
+            }
+
+            var rpo = group.AdditionalData["resourceProvisioningOptions"] as JArray;
+
+            if (!rpo.Values().Any(t => string.Equals(t.Value<string>(), "team", StringComparison.OrdinalIgnoreCase)))
+            {
+                logger.Trace($"Filtering non-team group {group.Id} with nickname {group.MailNickname}");
+                return true;
+            }
+
+            return false;
+        }
+
         private CSEntryChange GroupToCSEntryChange(Beta.Group group, SchemaType schemaType, ImportContext context)
         {
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "group";
-            c.ObjectModificationType = ObjectModificationType.Add;
             c.AnchorAttributes.Add(AnchorAttribute.Create("id", group.Id));
             c.DN = group.Id;
+
+            bool isRemoved = group.AdditionalData?.ContainsKey("@removed") ?? false;
+
+            logger.Trace(JsonConvert.SerializeObject(group));
+
+            if (context.InDelta)
+            {
+                if (isRemoved)
+                {
+                    c.ObjectModificationType = ObjectModificationType.Delete;
+                    return c;
+                }
+                else
+                {
+                    c.ObjectModificationType = ObjectModificationType.Replace;
+                }
+            }
+            else
+            {
+                if (isRemoved)
+                {
+                    return null;
+                }
+
+                c.ObjectModificationType = ObjectModificationType.Add;
+            }
 
             foreach (SchemaAttribute type in schemaType.Attributes)
             {
@@ -278,30 +396,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         break;
                 }
             }
-        }
-
-        private Beta.IGraphServiceGroupsCollectionRequest GetGroupEnumerationRequest(bool inDelta, WatermarkKeyedCollection importState, Beta.GraphServiceClient client, ImportContext context)
-        {
-            string filter = "resourceProvisioningOptions/Any(x:x eq 'Team')";
-
-            if (!string.IsNullOrWhiteSpace(context.ConfigParameters[ConfigParameterNames.FilterQuery].Value))
-            {
-                filter += $" and {context.ConfigParameters[ConfigParameterNames.FilterQuery].Value}";
-            }
-
-            GroupImportProvider.logger.Trace($"Enumerating groups with filter {filter}");
-
-            return client.Groups.Request()
-                .Select(e => new
-                {
-                    e.DisplayName,
-                    e.Id,
-                    e.ResourceProvisioningOptions,
-                    e.MailNickname,
-                    e.Description,
-                    e.Visibility,
-                })
-                .Filter(filter);
         }
 
         public bool CanImport(SchemaType type)

@@ -85,6 +85,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             bool logged = false;
             bool consumed = false;
 
+            if (numTokens < 0)
+            {
+                return;
+            }
+
             while (!consumed)
             {
                 consumed = this.TryConsume(numTokens, token);
