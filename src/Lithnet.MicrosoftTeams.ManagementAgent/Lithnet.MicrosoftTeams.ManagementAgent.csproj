@@ -141,9 +141,11 @@
     <Compile Include="Graph\GraphHelperTeams.cs" />
     <Compile Include="Graph\GraphHelperUsers.cs" />
     <Compile Include="Providers\CapabilitiesProvider.cs" />
+    <Compile Include="Providers\Group\TeamExportProvider.cs" />
     <Compile Include="Providers\Group\GroupExportProvider.cs" />
     <Compile Include="Providers\ConfigParametersProvider.cs" />
     <Compile Include="MicrosoftTeamsMAConfigSection.cs" />
+    <Compile Include="Providers\Group\TeamImportProvider.cs" />
     <Compile Include="Providers\Group\GroupImportProvider.cs" />
     <Compile Include="Providers\GraphConnectionContextProvider.cs" />
     <Compile Include="Providers\User\UserImportProvider.cs" />

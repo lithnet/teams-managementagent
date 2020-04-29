@@ -50,9 +50,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int retryCount = 1)
+        private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
         {
-            BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, 21);
+            BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, content.BatchRequestSteps.Count + 1);
 
             List<Exception> exceptions = new List<Exception>();
             List<BatchRequestStep> stepsToRetry = new List<BatchRequestStep>();
@@ -93,7 +93,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                             };
                         }
 
-                        if (r.Value.StatusCode == (HttpStatusCode)429 && retryCount <= 5)
+                        if (r.Value.StatusCode == (HttpStatusCode)429 && attemptCount <= 5)
                         {
                             if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
                             {
@@ -122,7 +122,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 }
             }
 
-            if (stepsToRetry.Count > 0 && retryCount <= 5)
+            if (stepsToRetry.Count > 0 && attemptCount <= 5)
             {
                 BatchRequestContent newContent = new BatchRequestContent();
 
@@ -136,9 +136,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     retryInterval = 30;
                 }
 
-                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {retryCount}");
+                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {attemptCount}");
                 await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
-                await SubmitBatchContent(client, newContent, ignoreNotFound, ignoreRefAlreadyExists, token, ++retryCount);
+                await SubmitBatchContent(client, newContent, ignoreNotFound, ignoreRefAlreadyExists, token, ++attemptCount);
             }
 
             if (exceptions.Count == 1)
