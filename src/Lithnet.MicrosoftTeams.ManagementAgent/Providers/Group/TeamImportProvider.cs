@@ -336,28 +336,37 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 if (channel.MembershipType == Beta.ChannelMembershipType.Private && schemaType.HasAttribute("member"))
                 {
-                    var members = await GraphHelperTeams.GetChannelMembers(client, groupid, channel.Id, context.Token);
+                    List<Beta.ConversationMember> members = await GraphHelperTeams.GetChannelMembers(client, groupid, channel.Id, context.Token);
                     logger.Trace(JsonConvert.SerializeObject(members));
                     if (members.Count > 0)
                     {
                         List<object> memberList = new List<object>();
                         List<object> ownerList = new List<object>();
 
-                        foreach (var member in members)
+                        foreach (Beta.ConversationMember member in members)
                         {
-                            if (member.AdditionalData == null)
-                            {
-                                logger.Warn("Member has no additional data and therefore no userId\r\n" + JsonConvert.SerializeObject(member));
-                                continue;
-                            }
+                            string memberValue;
 
-                            if (!member.AdditionalData.ContainsKey("userId"))
+                            if (member is Beta.AadUserConversationMember conMember)
                             {
-                                logger.Warn("Member does not have userId\r\n" + JsonConvert.SerializeObject(member));
-                                continue;
+                                memberValue = conMember.UserId;
                             }
+                            else
+                            {
+                                if (member.AdditionalData == null)
+                                {
+                                    logger.Warn("Member has no additional data and therefore no userId\r\n" + JsonConvert.SerializeObject(member));
+                                    continue;
+                                }
 
-                            string memberValue = member.AdditionalData["userId"] as string;
+                                if (!member.AdditionalData.ContainsKey("userId"))
+                                {
+                                    logger.Warn("Member does not have userId\r\n" + JsonConvert.SerializeObject(member));
+                                    continue;
+                                }
+
+                                memberValue = member.AdditionalData["userId"] as string;
+                            }
 
                             if (memberValue == null)
                             {
