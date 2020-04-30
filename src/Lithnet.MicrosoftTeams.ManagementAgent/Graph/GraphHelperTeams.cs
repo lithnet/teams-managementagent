@@ -1,14 +1,11 @@
 ﻿extern alias BetaLib;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
-using Lithnet.Ecma2Framework;
 using Beta = BetaLib.Microsoft.Graph;
 using Microsoft.Graph;
 using Newtonsoft.Json;
@@ -25,11 +22,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().GetAsync(token), token, 0);
         }
 
-        public static async Task<List<Beta.Channel>> GetChannels(Beta.GraphServiceClient client, string groupid, CancellationToken token)
+        public static async Task<List<Beta.Channel>> GetChannels(Beta.GraphServiceClient client, string teamid, CancellationToken token)
         {
             List<Beta.Channel> channels = new List<Beta.Channel>();
 
-            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupid].Channels.Request().GetAsync(token), token, 0);
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels.Request().GetAsync(token), token, 0);
 
             if (page?.Count > 0)
             {
@@ -74,11 +71,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         public static async Task<string> CreateTeam(Beta.GraphServiceClient client, Beta.Team team, CancellationToken token)
         {
-            TeamsAsyncOperation result;
-
             string location = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await RequestCreateTeam(client, team, token), token, 1);
 
-            result = await GraphHelperTeams.WaitForTeamsAsyncOperation(client, token, location);
+            TeamsAsyncOperation result = await GraphHelperTeams.WaitForTeamsAsyncOperation(client, token, location);
 
             if (result.Status == TeamsAsyncOperationStatus.Succeeded)
             {
@@ -89,6 +84,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             logger.Error($"Team creation failed\r\n{serializedResponse}");
 
             throw new ServiceException(new Error() { Code = result.Error.Code, AdditionalData = result.Error.AdditionalData, Message = result.Error.Message });
+        }
+
+        public static async Task UpdateTeam(GraphServiceClient client, string id, Team team, CancellationToken token)
+        {
+            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[id].Request().UpdateAsync(team, token), token, 1);
         }
 
         private static async Task<TeamsAsyncOperation> WaitForTeamsAsyncOperation(Beta.GraphServiceClient client, CancellationToken token, string location)
@@ -103,7 +103,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 var b = new TeamsAsyncOperationRequestBuilder($"{client.BaseUrl}{location}", client);
 
-                result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await b.Request().GetAsync(token), token, 1);
+                // GetAsyncOperation API sometimes returns 'bad request'. Possibly a replication issue. So we create a custom IsRetryable handler for this call only
+                result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await b.Request().GetAsync(token), token, 1, IsRetryable);
                 GraphHelperTeams.logger.Trace($"Result of async operation is {result.Status}: Count : {waitCount}");
             } while (result.Status == TeamsAsyncOperationStatus.InProgress || result.Status == TeamsAsyncOperationStatus.NotStarted);
 
@@ -137,10 +138,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        public static async Task UpdateTeam(GraphServiceClient client, string id, Team team, CancellationToken token)
+        private static bool IsRetryable(Exception ex)
         {
-            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[id].Request().UpdateAsync(team, token), token, 1);
+            return ex is TimeoutException || ex is ServiceException se && (se.StatusCode == HttpStatusCode.NotFound || se.StatusCode == HttpStatusCode.BadGateway || se.StatusCode == HttpStatusCode.BadRequest);
         }
-
     }
 }

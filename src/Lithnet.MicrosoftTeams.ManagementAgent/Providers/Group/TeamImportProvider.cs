@@ -2,11 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Beta = BetaLib.Microsoft.Graph;
 using Lithnet.Ecma2Framework;
+using Lithnet.MetadirectoryServices;
 using Microsoft.MetadirectoryServices;
 using NLog;
 using Microsoft.Graph;
@@ -23,6 +23,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
+                if (type.Name == "channel")
+                {
+                    return;
+                }
+
                 BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions { CancellationToken = context.Token });
 
                 Task consumerTask = this.ConsumeQueue(context, type, groupQueue);
@@ -114,7 +119,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         await this.GroupMemberToCSEntryChange(c, type, context);
                         await this.TeamToCSEntryChange(c, type, context).ConfigureAwait(false);
                         context.ImportItems.Add(c, context.Token);
-                        await this.CreateChannelCSEntryChanges(group.Id, type, context);
+                        await this.CreateChannelCSEntryChanges(group.Id, context);
                     }
                 }
                 catch (Exception ex)
@@ -276,12 +281,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task CreateChannelCSEntryChanges(string groupid, SchemaType schemaType, ImportContext context)
+        private async Task CreateChannelCSEntryChanges(string groupid, ImportContext context)
         {
             if (!context.Types.Types.Contains("channel"))
             {
                 return;
             }
+
+            SchemaType schemaType = context.Types.Types["channel"];
 
             Beta.GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
 
@@ -289,24 +296,95 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             foreach (var channel in channels)
             {
-                var members = await GraphHelperTeams.GetChannelMembers(client, groupid, channel.Id, context.Token);
-
                 CSEntryChange c = CSEntryChange.Create();
                 c.ObjectType = "channel";
                 c.ObjectModificationType = ObjectModificationType.Add;
                 c.AnchorAttributes.Add(AnchorAttribute.Create("id", channel.Id));
                 c.DN = channel.Id;
 
-                c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("displayName", channel.DisplayName));
+                c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("teamid", groupid));
 
-                if (!string.IsNullOrWhiteSpace(channel.Description))
+                if (schemaType.HasAttribute("displayName"))
+                {
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("displayName", channel.DisplayName));
+                }
+
+                if (schemaType.HasAttribute("description") && !string.IsNullOrWhiteSpace(channel.Description))
                 {
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("description", channel.Description));
                 }
 
-                if (members.Count > 0)
+                if (schemaType.HasAttribute("email") && !string.IsNullOrWhiteSpace(channel.Email))
                 {
-                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("email", channel.Email));
+                }
+
+                if (schemaType.HasAttribute("webUrl") && !string.IsNullOrWhiteSpace(channel.WebUrl))
+                {
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("webUrl", channel.WebUrl));
+                }
+
+                if (schemaType.HasAttribute("membershipType") && channel.MembershipType.HasValue)
+                {
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("membershipType", channel.MembershipType.Value.ToString()));
+                }
+
+                if (schemaType.HasAttribute("isFavoriteByDefault"))
+                {
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("isFavoriteByDefault", channel.IsFavoriteByDefault ?? false));
+                }
+
+                if (channel.MembershipType == Beta.ChannelMembershipType.Private && schemaType.HasAttribute("member"))
+                {
+                    var members = await GraphHelperTeams.GetChannelMembers(client, groupid, channel.Id, context.Token);
+                    logger.Trace(JsonConvert.SerializeObject(members));
+                    if (members.Count > 0)
+                    {
+                        List<object> memberList = new List<object>();
+                        List<object> ownerList = new List<object>();
+
+                        foreach (var member in members)
+                        {
+                            if (member.AdditionalData == null)
+                            {
+                                logger.Warn("Member has no additional data and therefore no userId\r\n" + JsonConvert.SerializeObject(member));
+                                continue;
+                            }
+
+                            if (!member.AdditionalData.ContainsKey("userId"))
+                            {
+                                logger.Warn("Member does not have userId\r\n" + JsonConvert.SerializeObject(member));
+                                continue;
+                            }
+
+                            string memberValue = member.AdditionalData["userId"] as string;
+
+                            if (memberValue == null)
+                            {
+                                logger.Warn("Member userId was null\r\n" + JsonConvert.SerializeObject(member));
+                                continue;
+                            }
+
+                            if (member.Roles.Contains("owner", StringComparer.OrdinalIgnoreCase))
+                            {
+                                ownerList.Add(memberValue);
+                            }
+                            else
+                            {
+                                memberList.Add(memberValue);
+                            }
+                        }
+
+                        if (memberList.Count > 0)
+                        {
+                            c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", memberList));
+                        }
+
+                        if (ownerList.Count > 0)
+                        {
+                            c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("owner", ownerList));
+                        }
+                    }
                 }
 
                 context.ImportItems.Add(c, context.Token);
@@ -400,7 +478,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         public bool CanImport(SchemaType type)
         {
-            return type.Name == "team";
+            return type.Name == "team" || type.Name == "channel";
         }
     }
 }

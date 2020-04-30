@@ -164,15 +164,25 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         internal static T ExecuteWithRetry<T>(Func<T> task, CancellationToken token)
         {
-            return ExecuteWithRetryAndRateLimit(task, token, 0);
+            return ExecuteWithRetryAndRateLimit(task, token, 0, IsRetryable);
         }
 
         internal static async Task<T> ExecuteWithRetry<T>(Func<Task<T>> task, CancellationToken token)
         {
-            return await ExecuteWithRetryAndRateLimit(task, token, 0);
+            return await ExecuteWithRetryAndRateLimit(task, token, 0, IsRetryable);
         }
 
         internal static T ExecuteWithRetryAndRateLimit<T>(Func<T> task, CancellationToken token, int requests)
+        {
+            return ExecuteWithRetryAndRateLimit(task, token, requests, IsRetryable);
+        }
+
+        internal static async Task<T> ExecuteWithRetryAndRateLimit<T>(Func<Task<T>> task, CancellationToken token, int requests)
+        {
+            return await ExecuteWithRetryAndRateLimit(task, token, requests, IsRetryable);
+        }
+
+        internal static T ExecuteWithRetryAndRateLimit<T>(Func<T> task, CancellationToken token, int requests, Func<Exception, bool> isRetryable)
         {
             T result = default(T);
 
@@ -189,7 +199,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 }
                 catch (ServiceException ex)
                 {
-                    if (IsRetryable(ex) && retryCount <= MaxRetry)
+                    if (isRetryable(ex) && retryCount <= MaxRetry)
                     {
                         retryCount++;
                         logger.Warn(ex, $"A retryable error was detected (attempt: {retryCount})");
@@ -205,7 +215,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return result;
         }
 
-        internal static async Task<T> ExecuteWithRetryAndRateLimit<T>(Func<Task<T>> task, CancellationToken token, int requests)
+        internal static async Task<T> ExecuteWithRetryAndRateLimit<T>(Func<Task<T>> task, CancellationToken token, int requests, Func<Exception, bool> isRetryable)
         {
             T result = default(T);
 
@@ -222,7 +232,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 }
                 catch (ServiceException ex)
                 {
-                    if (IsRetryable(ex) && retryCount <= MaxRetry)
+                    if (isRetryable(ex) && retryCount <= MaxRetry)
                     {
                         retryCount++;
                         logger.Warn(ex, $"A retryable error was detected (attempt: {retryCount})");
