@@ -54,8 +54,8 @@
     <Reference Include="Costura, Version=2.0.1.0, Culture=neutral, PublicKeyToken=9919ef960d84173d, processorArchitecture=MSIL">
       <HintPath>..\packages\Costura.Fody.2.0.1\lib\net452\Costura.dll</HintPath>
     </Reference>
-    <Reference Include="Lithnet.Ecma2Framework, Version=1.0.7425.32835, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Lithnet.Ecma2Framework.1.0.7425.32835\lib\net461\Lithnet.Ecma2Framework.dll</HintPath>
+    <Reference Include="Lithnet.Ecma2Framework, Version=1.0.7428.28247, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lithnet.Ecma2Framework.1.0.7428.28247\lib\net461\Lithnet.Ecma2Framework.dll</HintPath>
     </Reference>
     <Reference Include="Lithnet.MetadirectoryServices, Version=1.0.6730.35901, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Lithnet.MetadirectoryServices.1.0.6730.35901\lib\net461\Lithnet.MetadirectoryServices.dll</HintPath>
@@ -145,6 +145,7 @@
     <Compile Include="Graph\GraphHelperTeams.cs" />
     <Compile Include="Graph\GraphHelperUsers.cs" />
     <Compile Include="Providers\CapabilitiesProvider.cs" />
+    <Compile Include="Providers\Group\ChannelExportProvider.cs" />
     <Compile Include="Providers\Group\TeamExportProvider.cs" />
     <Compile Include="Providers\Group\GroupExportProvider.cs" />
     <Compile Include="Providers\ConfigParametersProvider.cs" />
@@ -152,6 +153,7 @@
     <Compile Include="Providers\Group\TeamImportProvider.cs" />
     <Compile Include="Providers\Group\GroupImportProvider.cs" />
     <Compile Include="Providers\GraphConnectionContextProvider.cs" />
+    <Compile Include="Providers\SettingsProvider.cs" />
     <Compile Include="Providers\User\UserImportProvider.cs" />
     <Compile Include="Providers\SchemaProvider.cs" />
     <Compile Include="GraphConnectionContext.cs" />

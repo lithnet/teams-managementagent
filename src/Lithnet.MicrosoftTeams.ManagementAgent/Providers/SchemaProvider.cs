@@ -65,7 +65,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             mmsSchema.Types.Add(SchemaProvider.GetSchemaTypeUser());
             mmsSchema.Types.Add(SchemaProvider.GetSchemaTypeGroup());
             mmsSchema.Types.Add(SchemaProvider.GetSchemaTypeTeam());
-            mmsSchema.Types.Add(SchemaProvider.GetSchemaTypeChannel());
+            mmsSchema.Types.Add(SchemaProvider.GetSchemaTypePublicChannel());
+            mmsSchema.Types.Add(SchemaProvider.GetSchemaTypePrivateChannel());
 
             return mmsSchema;
         }
@@ -88,14 +89,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return mmsType;
         }
 
-        private static SchemaType GetSchemaTypeChannel()
+        private static SchemaType GetSchemaTypePublicChannel()
         {
-            SchemaType mmsType = SchemaType.Create("channel", true);
+            SchemaType mmsType = SchemaType.Create("publicChannel", true);
 
             SchemaAttribute mmsAttribute = SchemaAttribute.CreateAnchorAttribute("id", AttributeType.String, AttributeOperation.ImportOnly);
             mmsType.Attributes.Add(mmsAttribute);
 
-            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("teamid", AttributeType.Reference, AttributeOperation.ImportExport);
+            mmsAttribute = SchemaAttribute.CreateAnchorAttribute("teamid", AttributeType.String, AttributeOperation.ImportOnly);
             mmsType.Attributes.Add(mmsAttribute);
 
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("description", AttributeType.String, AttributeOperation.ImportExport);
@@ -110,16 +111,47 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("webUrl", AttributeType.String, AttributeOperation.ImportOnly);
             mmsType.Attributes.Add(mmsAttribute);
 
-            mmsAttribute = SchemaAttribute.CreateMultiValuedAttribute("member", AttributeType.Reference, AttributeOperation.ImportExport);
-            mmsType.Attributes.Add(mmsAttribute);
-
-            mmsAttribute = SchemaAttribute.CreateMultiValuedAttribute("owner", AttributeType.Reference, AttributeOperation.ImportExport);
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("team", AttributeType.Reference, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
 
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("isFavoriteByDefault", AttributeType.Boolean, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
 
-            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("membershipType", AttributeType.String, AttributeOperation.ImportExport);
+            return mmsType;
+        }
+
+        private static SchemaType GetSchemaTypePrivateChannel()
+        {
+            SchemaType mmsType = SchemaType.Create("privateChannel", true);
+
+            SchemaAttribute mmsAttribute = SchemaAttribute.CreateAnchorAttribute("id", AttributeType.String, AttributeOperation.ImportOnly);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateAnchorAttribute("teamid", AttributeType.String, AttributeOperation.ImportOnly);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("description", AttributeType.String, AttributeOperation.ImportExport);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("displayName", AttributeType.String, AttributeOperation.ImportExport);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("email", AttributeType.String, AttributeOperation.ImportOnly);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("webUrl", AttributeType.String, AttributeOperation.ImportOnly);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("team", AttributeType.Reference, AttributeOperation.ImportExport);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("isFavoriteByDefault", AttributeType.Boolean, AttributeOperation.ImportExport);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateMultiValuedAttribute("member", AttributeType.Reference, AttributeOperation.ImportExport);
+            mmsType.Attributes.Add(mmsAttribute);
+
+            mmsAttribute = SchemaAttribute.CreateMultiValuedAttribute("owner", AttributeType.Reference, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
 
             return mmsType;

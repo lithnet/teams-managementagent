@@ -17,10 +17,11 @@
 
     <!-- Prerequisites -->
 
-    <PropertyRef Id="WIX_IS_NETFRAMEWORK_45_OR_LATER_INSTALLED" />
+    <PropertyRef Id="WIX_IS_NETFRAMEWORK_461_OR_LATER_INSTALLED" />
+    <PropertyRef Id="NETFRAMEWORK40FULLINSTALLROOTDIR"/>
 
-    <Condition Message="This application requires .NET Framework 4.5. Please install the .NET Framework then run this installer again">
-      <![CDATA[Installed OR WIX_IS_NETFRAMEWORK_45_OR_LATER_INSTALLED]]>
+    <Condition Message="This application requires .NET Framework 4.6.1. Please install the .NET Framework then run this installer again">
+      <![CDATA[Installed OR WIX_IS_NETFRAMEWORK_461_OR_LATER_INSTALLED]]>
     </Condition>
 
     <Property Id="FIMINSTALLDIR" Secure="yes">
@@ -84,6 +85,10 @@
       </Component>
       <Component Id="cmp0925c367c282486689dcee98ce632bea" Guid="*">
         <File Id="fil012028f354894be0a63c8471aa7ae331" KeyPath="yes" Source="$(var.Lithnet.MicrosoftTeams.ManagementAgent.TargetDir)Lithnet.MicrosoftTeams.ManagementAgent.pdb" />
+      </Component>
+      <Component Id="cmpb6063115c6e646f395f112aa8fd3282e" Guid="*" Win64="yes" >
+        <Util:EventSource xmlns:Util="http://schemas.microsoft.com/wix/UtilExtension"  EventMessageFile="[NETFRAMEWORK40FULLINSTALLROOTDIR]EventLogMessages.dll"
+                          Name="Lithnet Microsoft Teams Management Agent" Log="Application" SupportsErrors="yes" SupportsInformationals="yes" SupportsWarnings="yes" KeyPath="yes"/>
       </Component>
     </ComponentGroup>
 

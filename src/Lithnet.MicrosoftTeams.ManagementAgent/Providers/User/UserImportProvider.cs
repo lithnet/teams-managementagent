@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lithnet.Ecma2Framework;
 using Microsoft.MetadirectoryServices;
@@ -33,7 +35,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private async Task ProduceObjects(ImportContext context, ITargetBlock<User> target)
         {
             var client = ((GraphConnectionContext)context.ConnectionContext).Client;
-            string newDeltaLink;
+            string newDeltaLink = null;
 
             if (context.InDelta)
             {
@@ -49,11 +51,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     throw new WarningNoWatermarkException();
                 }
 
-                newDeltaLink = await GraphHelperUsers.GetUsers(client, watermark.Value, target, context.Token);
+                newDeltaLink = await GraphHelperUsers.GetUsersWithDelta(client, watermark.Value, target, context.Token);
             }
             else
             {
-                newDeltaLink = await GraphHelperUsers.GetUsers(client, target, context.Token, "displayName", "onPremisesSamAccountName", "id", "userPrincipalName");
+                //await GraphHelperUsers.GetUsers(client, target, context.Token, "displayName", "onPremisesSamAccountName", "id", "userPrincipalName");
+                newDeltaLink = await GraphHelperUsers.GetUsersWithDelta(client, target, context.Token, "displayName", "onPremisesSamAccountName", "id", "userPrincipalName");
             }
 
             if (newDeltaLink != null)
@@ -73,10 +76,18 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 CancellationToken = context.Token,
             };
 
+            ConcurrentDictionary<string, byte> seenUserIDs = new ConcurrentDictionary<string, byte>();
+
             ActionBlock<User> action = new ActionBlock<User>(user =>
             {
                 try
                 {
+                    if (!seenUserIDs.TryAdd(user.Id, 0))
+                    {
+                        logger.Trace($"Skipping duplicate entry returned from graph for user {user.Id}");
+                        return;
+                    }
+
                     CSEntryChange c = this.UserToCSEntryChange(context.InDelta, type, user, context);
 
                     if (c != null)

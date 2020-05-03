@@ -69,6 +69,16 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Team.Request().PutAsync(team, token), token, 1);
         }
 
+        public static async Task<Beta.Channel> CreateChannel(Beta.GraphServiceClient client, string teamid, Beta.Channel channel, CancellationToken token)
+        {
+            return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels.Request().AddAsync(channel, token), token, 1);
+        }
+
+        public static async Task<Beta.Channel> UpdateChannel(Beta.GraphServiceClient client, string teamid, string channelid, Beta.Channel channel, CancellationToken token)
+        {
+            return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels[channelid].Request().UpdateAsync(channel, token), token, 1);
+        }
+
         public static async Task<string> CreateTeam(Beta.GraphServiceClient client, Beta.Team team, CancellationToken token)
         {
             string location = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await RequestCreateTeam(client, team, token), token, 1);
@@ -86,9 +96,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             throw new ServiceException(new Error() { Code = result.Error.Code, AdditionalData = result.Error.AdditionalData, Message = result.Error.Message });
         }
 
-        public static async Task UpdateTeam(GraphServiceClient client, string id, Team team, CancellationToken token)
+        public static async Task UpdateTeam(GraphServiceClient client, string teamid, Team team, CancellationToken token)
         {
-            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[id].Request().UpdateAsync(team, token), token, 1);
+            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().UpdateAsync(team, token), token, 1);
         }
 
         private static async Task<TeamsAsyncOperation> WaitForTeamsAsyncOperation(Beta.GraphServiceClient client, CancellationToken token, string location)
@@ -136,6 +146,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 throw new InvalidOperationException("The request was not successful");
             }
+        }
+
+        public static async Task DeleteChannel(Beta.GraphServiceClient client, string teamid, string channelid, CancellationToken token)
+        {
+            await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels[channelid].Request().DeleteAsync(token), token, 1);
         }
 
         private static bool IsRetryable(Exception ex)

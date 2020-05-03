@@ -14,20 +14,26 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        public static async Task<string> GetUsers(GraphServiceClient client, string deltaLink, ITargetBlock<User> target, CancellationToken token)
+        public static async Task<string> GetUsersWithDelta(GraphServiceClient client, string deltaLink, ITargetBlock<User> target, CancellationToken token)
         {
             IUserDeltaCollectionPage page = new UserDeltaCollectionPage();
             page.InitializeNextPageRequest(client, deltaLink);
-            return await GetUsers(page, target, token);
+            return await GraphHelperUsers.GetUsersWithDelta(page, target, token);
         }
 
-        public static async Task<string> GetUsers(GraphServiceClient client, ITargetBlock<User> target, CancellationToken token, params string[] selectProperties)
+        public static async Task<string> GetUsersWithDelta(GraphServiceClient client, ITargetBlock<User> target, CancellationToken token, params string[] selectProperties)
         {
             var request = client.Users.Delta().Request().Select(string.Join(",", selectProperties));
-            return await GetUsers(request, target, token);
+            return await GraphHelperUsers.GetUsersWithDelta(request, target, token);
         }
 
-        private static async Task<string> GetUsers(IUserDeltaRequest request, ITargetBlock<User> target, CancellationToken token)
+        public static async Task GetUsers(GraphServiceClient client, ITargetBlock<User> target, CancellationToken token, params string[] selectProperties)
+        {
+            var request = client.Users.Request().Select(string.Join(",", selectProperties));
+            await GraphHelperUsers.GetUsers(request, target, token);
+        }
+
+        private static async Task<string> GetUsersWithDelta(IUserDeltaRequest request, ITargetBlock<User> target, CancellationToken token)
         {
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
 
@@ -36,10 +42,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 target.Post(user);
             }
 
-            return await GetUsers(page, target, token);
+            return await GraphHelperUsers.GetUsersWithDelta(page, target, token);
         }
 
-        private static async Task<string> GetUsers(IUserDeltaCollectionPage page, ITargetBlock<User> target, CancellationToken token)
+        private static async Task<string> GetUsersWithDelta(IUserDeltaCollectionPage page, ITargetBlock<User> target, CancellationToken token)
         {
             while (page.NextPageRequest != null)
             {

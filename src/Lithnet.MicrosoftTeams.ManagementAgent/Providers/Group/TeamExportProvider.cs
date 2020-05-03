@@ -196,8 +196,29 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 Group group = new Group();
                 group.MailNickname = csentry.GetValueAdd<string>("mailNickname");
 
-                await GraphHelperGroups.UpdateGroup(client, teamID, group, context.Token);
-                logger.Info($"{csentry.DN}: Updated group {group.Id}");
+                try
+                {
+                    await GraphHelperGroups.UpdateGroup(client, teamID, group, context.Token);
+                    logger.Info($"{csentry.DN}: Updated group {group.Id}");
+                }
+                catch (ServiceException ex)
+                {
+                    if (MicrosoftTeamsMAConfigSection.Configuration.DeleteAddConflictingGroup && ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.IndexOf("mailNickname", 0, StringComparison.Ordinal) > 0)
+                    {
+                        string mailNickname = csentry.GetValueAdd<string>("mailNickname");
+                        logger.Warn($"{csentry.DN}: Deleting group with conflicting mailNickname '{mailNickname}'");
+                        string existingGroup = await GraphHelperGroups.GetGroupIdByMailNickname(client, mailNickname, context.Token);
+                        await GraphHelperGroups.DeleteGroup(client, existingGroup, context.Token);
+                        await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay));
+
+                        await GraphHelperGroups.UpdateGroup(client, teamID, group, context.Token);
+                        logger.Info($"{csentry.DN}: Updated group {group.Id}");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
             }
 
             IList<string> members = csentry.GetValueAdds<string>("member") ?? new List<string>();

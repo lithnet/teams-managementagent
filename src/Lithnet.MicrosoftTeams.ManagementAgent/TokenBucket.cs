@@ -85,7 +85,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             bool logged = false;
             bool consumed = false;
 
-            if (numTokens < 0)
+            if (numTokens <= 0)
             {
                 return;
             }
