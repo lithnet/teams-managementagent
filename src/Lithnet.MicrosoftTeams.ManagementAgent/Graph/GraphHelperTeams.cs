@@ -10,6 +10,7 @@ using Beta = BetaLib.Microsoft.Graph;
 using Microsoft.Graph;
 using Newtonsoft.Json;
 using NLog;
+using System.Linq;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
@@ -43,25 +44,87 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return channels;
         }
 
-        public static async Task<List<Beta.ConversationMember>> GetChannelMembers(Beta.GraphServiceClient client, string groupId, string channelId, CancellationToken token)
+        public static async Task<List<Beta.AadUserConversationMember>> GetChannelMembers(Beta.GraphServiceClient client, string groupId, string channelId, CancellationToken token)
         {
-            List<Beta.ConversationMember> members = new List<Beta.ConversationMember>();
+            List<Beta.AadUserConversationMember> members = new List<Beta.AadUserConversationMember>();
 
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token), token, 0);
 
             if (page?.Count > 0)
             {
-                members.AddRange(page.CurrentPage);
+                members.AddRange(page.CurrentPage.Where(t => t is Beta.AadUserConversationMember && (t.Roles == null || t.Roles.Any(u => !string.Equals(u, "guest", StringComparison.OrdinalIgnoreCase)))).Cast<Beta.AadUserConversationMember>());
 
                 while (page.NextPageRequest != null)
                 {
                     page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
-                    members.AddRange(page.CurrentPage);
+                    members.AddRange(page.CurrentPage.Where(t => t is Beta.AadUserConversationMember && (t.Roles == null || t.Roles.Any(u => !string.Equals(u, "guest", StringComparison.OrdinalIgnoreCase)))).Cast<Beta.AadUserConversationMember>());
                 }
             }
 
             return members;
+        }
+
+        public static async Task AddChannelMembers(Beta.GraphServiceClient client, string teamid, string channelid, IList<Beta.AadUserConversationMember> members, bool ignoreMemberExists, CancellationToken token)
+        {
+            if (members.Count == 0)
+            {
+                return;
+            }
+
+            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+
+            foreach (var member in members)
+            {
+                HttpRequestMessage createEventMessage = new HttpRequestMessage(HttpMethod.Post, client.Teams[teamid].Channels[channelid].Members.Request().RequestUrl);
+                createEventMessage.Content = new StringContent(JsonConvert.SerializeObject(member), Encoding.UTF8, "application/json");
+
+                requests.Add(new BatchRequestStep(member.Id, createEventMessage));
+            }
+
+            logger.Trace($"Adding {requests.Count} members in batch request for channel {teamid}:{channelid}");
+
+            await GraphHelper.SubmitAsBatches(client, requests, false, ignoreMemberExists, token);
+        }
+
+        public static async Task UpdateChannelMembers(Beta.GraphServiceClient client, string teamid, string channelid, IList<Beta.AadUserConversationMember> members, CancellationToken token)
+        {
+            if (members.Count == 0)
+            {
+                return;
+            }
+
+            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+
+            foreach (var member in members)
+            {
+                HttpRequestMessage createEventMessage = new HttpRequestMessage(new HttpMethod("PATCH"), client.Teams[teamid].Channels[channelid].Members[member.UserId].Request().RequestUrl);
+                createEventMessage.Content = new StringContent(JsonConvert.SerializeObject(member), Encoding.UTF8, "application/json");
+
+                requests.Add(new BatchRequestStep(member.Id, createEventMessage));
+            }
+
+            logger.Trace($"Adding {requests.Count} members in batch request for channel {teamid}:{channelid}");
+
+            await GraphHelper.SubmitAsBatches(client, requests, false, false, token);
+        }
+
+        public static async Task RemoveChannelMembers(Beta.GraphServiceClient client, string teamid, string channelid, IList<Beta.AadUserConversationMember> members, bool ignoreNotFound, CancellationToken token)
+        {
+            if (members.Count == 0)
+            {
+                return;
+            }
+
+            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+
+            foreach (var member in members)
+            {
+                requests.Add(GraphHelper.GenerateBatchRequestStep(HttpMethod.Delete, member.Id, client.Teams[teamid].Channels[channelid].Members[member.UserId].Request().RequestUrl));
+            }
+
+            logger.Trace($"Removing {requests.Count} members in batch request for channel {teamid}:{channelid}");
+            await GraphHelper.SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
         public static async Task<Team> CreateTeamFromGroup(GraphServiceClient client, string groupid, Team team, CancellationToken token)

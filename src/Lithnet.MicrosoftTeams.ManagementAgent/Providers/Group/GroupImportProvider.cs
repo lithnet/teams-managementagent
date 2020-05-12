@@ -19,29 +19,44 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        public async Task GetCSEntryChangesAsync(ImportContext context, SchemaType type)
+        private IImportContext context;
+
+        private GraphServiceClient client;
+
+        private Beta.GraphServiceClient betaClient;
+
+        private CancellationToken token;
+
+        public void Initialize(IImportContext context)
+        {
+            this.context = context;
+            this.token = context.Token;
+            this.betaClient = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
+            this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
+        }
+
+        public async Task GetCSEntryChangesAsync(SchemaType type)
         {
             try
             {
-                BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions { CancellationToken = context.Token });
+                BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions { CancellationToken = this.token });
 
-                Task consumerTask = this.ConsumeQueue(context, type, groupQueue);
+                Task consumerTask = this.ConsumeQueue(type, groupQueue);
 
-                await this.ProduceObjects(context, groupQueue);
+                await this.ProduceObjects(groupQueue);
 
                 await consumerTask;
             }
             catch (Exception ex)
             {
-                GroupImportProvider.logger.Error(ex, "There was an error importing the group data");
+                logger.Error(ex, "There was an error importing the group data");
                 throw;
             }
         }
 
-        private async Task ProduceObjects(ImportContext context, ITargetBlock<Beta.Group> target)
+        private async Task ProduceObjects(ITargetBlock<Beta.Group> target)
         {
-            var client = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
-            await GraphHelperGroups.GetGroups(client, target, context.ConfigParameters[ConfigParameterNames.FilterQuery].Value, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
+            await GraphHelperGroups.GetGroups(this.betaClient, target, this.context.ConfigParameters[ConfigParameterNames.FilterQuery].Value,this.token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
             target.Complete();
         }
 
@@ -54,48 +69,46 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         /// <param name="context"></param>
         /// <param name="target"></param>
         /// <returns></returns>
-        private async Task ProduceObjectsDelta(ImportContext context, ITargetBlock<Group> target)
+        private async Task ProduceObjectsDelta(ITargetBlock<Group> target)
         {
-            var client = ((GraphConnectionContext)context.ConnectionContext).Client;
-
             string newDeltaLink;
 
-            if (context.InDelta)
+            if (this.context.InDelta)
             {
-                if (!context.IncomingWatermark.Contains("group"))
+                if (!this.context.IncomingWatermark.Contains("group"))
                 {
                     throw new WarningNoWatermarkException();
                 }
 
-                Watermark watermark = context.IncomingWatermark["group"];
+                Watermark watermark = this.context.IncomingWatermark["group"];
 
                 if (watermark.Value == null)
                 {
                     throw new WarningNoWatermarkException();
                 }
 
-                newDeltaLink = await GraphHelperGroups.GetGroups(client, watermark.Value, target, context.Token);
+                newDeltaLink = await GraphHelperGroups.GetGroups(this.client, watermark.Value, target,this.token);
             }
             else
             {
-                newDeltaLink = await GraphHelperGroups.GetGroups(client, target, context.Token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility", "members", "owners");
+                newDeltaLink = await GraphHelperGroups.GetGroups(this.client, target,this.token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility", "members", "owners");
             }
 
             if (newDeltaLink != null)
             {
                 logger.Trace($"Got delta link {newDeltaLink}");
-                context.OutgoingWatermark.Add(new Watermark("group", newDeltaLink, "string"));
+                this.context.OutgoingWatermark.Add(new Watermark("group", newDeltaLink, "string"));
             }
 
             target.Complete();
         }
 
-        private async Task ConsumeQueue(ImportContext context, SchemaType type, ISourceBlock<Beta.Group> source)
+        private async Task ConsumeQueue(SchemaType type, ISourceBlock<Beta.Group> source)
         {
             var edfo = new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = MicrosoftTeamsMAConfigSection.Configuration.ImportThreads,
-                CancellationToken = context.Token,
+                CancellationToken = this.token,
             };
 
             ActionBlock<Beta.Group> action = new ActionBlock<Beta.Group>(async group =>
@@ -107,25 +120,25 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     //    return;
                     //}
 
-                    CSEntryChange c = this.GroupToCSEntryChange(group, type, context);
+                    CSEntryChange c = this.GroupToCSEntryChange(group, type);
 
                     if (c != null)
                     {
-                        await this.GroupMemberToCSEntryChange(c, type, context);
-                        await this.TeamToCSEntryChange(c, type, context).ConfigureAwait(false);
-                        context.ImportItems.Add(c, context.Token);
-                        await this.CreateChannelCSEntryChanges(group.Id, type, context);
+                        await this.GroupMemberToCSEntryChange(c, type);
+                        await this.TeamToCSEntryChange(c, type).ConfigureAwait(false);
+                        this.context.ImportItems.Add(c,this.token);
+                        await this.CreateChannelCSEntryChanges(group.Id, type);
                     }
                 }
                 catch (Exception ex)
                 {
-                    GroupImportProvider.logger.Error(ex);
+                    logger.Error(ex);
                     CSEntryChange csentry = CSEntryChange.Create();
                     csentry.DN = group.Id;
                     csentry.ErrorCodeImport = MAImportError.ImportErrorCustomContinueRun;
                     csentry.ErrorDetail = ex.StackTrace;
                     csentry.ErrorName = ex.Message;
-                    context.ImportItems.Add(csentry, context.Token);
+                    this.context.ImportItems.Add(csentry,this.token);
                 }
             }, edfo);
 
@@ -134,9 +147,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await action.Completion;
         }
 
-        private bool ShouldFilterDelta(Beta.Group group, ImportContext context)
+        private bool ShouldFilterDelta(Beta.Group group)
         {
-            string filter = context.ConfigParameters[ConfigParameterNames.FilterQuery].Value;
+            string filter = this.context.ConfigParameters[ConfigParameterNames.FilterQuery].Value;
 
             if (!string.IsNullOrWhiteSpace(filter))
             {
@@ -153,7 +166,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return true;
             }
 
-            if (!context.InDelta && group.AdditionalData.ContainsKey("@removed"))
+            if (!this.context.InDelta && group.AdditionalData.ContainsKey("@removed"))
             {
                 logger.Trace($"Filtering deleted group {group.Id} with nickname {group.MailNickname}");
                 return true;
@@ -176,7 +189,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return false;
         }
 
-        private CSEntryChange GroupToCSEntryChange(Beta.Group group, SchemaType schemaType, ImportContext context)
+        private CSEntryChange GroupToCSEntryChange(Beta.Group group, SchemaType schemaType)
         {
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "group";
@@ -187,7 +200,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             logger.Trace(JsonConvert.SerializeObject(group));
 
-            if (context.InDelta)
+            if (this.context.InDelta)
             {
                 if (isRemoved)
                 {
@@ -252,13 +265,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return c;
         }
 
-        private async Task GroupMemberToCSEntryChange(CSEntryChange c, SchemaType schemaType, ImportContext context)
+        private async Task GroupMemberToCSEntryChange(CSEntryChange c, SchemaType schemaType)
         {
-            GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
-
             if (schemaType.Attributes.Contains("member"))
             {
-                List<DirectoryObject> members = await GraphHelperGroups.GetGroupMembers(client, c.DN, context.Token);
+                List<DirectoryObject> members = await GraphHelperGroups.GetGroupMembers(this.client, c.DN,this.token);
                 if (members.Count > 0)
                 {
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
@@ -267,7 +278,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (schemaType.Attributes.Contains("owner"))
             {
-                List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(client, c.DN, context.Token);
+                List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(this.client, c.DN,this.token);
 
                 if (owners.Count > 0)
                 {
@@ -276,20 +287,18 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task CreateChannelCSEntryChanges(string groupid, SchemaType schemaType, ImportContext context)
+        private async Task CreateChannelCSEntryChanges(string groupid, SchemaType schemaType)
         {
-            if (!context.Types.Types.Contains("channel"))
+            if (!this.context.Types.Types.Contains("channel"))
             {
                 return;
             }
 
-            Beta.GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
-
-            var channels = await GraphHelperTeams.GetChannels(client, groupid, context.Token);
+            var channels = await GraphHelperTeams.GetChannels(this.betaClient, groupid,this.token);
 
             foreach (var channel in channels)
             {
-                var members = await GraphHelperTeams.GetChannelMembers(client, groupid, channel.Id, context.Token);
+                var members = await GraphHelperTeams.GetChannelMembers(this.betaClient, groupid, channel.Id,this.token);
 
                 CSEntryChange c = CSEntryChange.Create();
                 c.ObjectType = "channel";
@@ -309,15 +318,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
                 }
 
-                context.ImportItems.Add(c, context.Token);
+                this.context.ImportItems.Add(c,this.token);
             }
         }
 
-        private async Task TeamToCSEntryChange(CSEntryChange c, SchemaType schemaType, ImportContext context)
+        private async Task TeamToCSEntryChange(CSEntryChange c, SchemaType schemaType)
         {
-            GraphServiceClient client = ((GraphConnectionContext)context.ConnectionContext).Client;
-
-            Team team = await GraphHelperTeams.GetTeam(client, c.DN, context.Token);
+            Team team = await GraphHelperTeams.GetTeam(this.client, c.DN,this.token);
 
             foreach (SchemaAttribute type in schemaType.Attributes)
             {

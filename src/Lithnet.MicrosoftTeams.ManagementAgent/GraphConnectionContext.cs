@@ -22,7 +22,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         internal static GraphConnectionContext GetConnectionContext(KeyedCollection<string, ConfigParameter> configParameters)
         {
-            GraphConnectionContext.logger.Info($"Setting up connection to {configParameters[ConfigParameterNames.TenantDomain].Value}");
+            logger.Info($"Setting up connection to {configParameters[ConfigParameterNames.TenantDomain].Value}");
 
             System.Net.ServicePointManager.DefaultConnectionLimit = MicrosoftTeamsMAConfigSection.Configuration.ConnectionLimit;
             GlobalSettings.ExportThreadCount = MicrosoftTeamsMAConfigSection.Configuration.ExportThreads;

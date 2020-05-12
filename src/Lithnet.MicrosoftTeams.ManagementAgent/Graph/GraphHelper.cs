@@ -93,7 +93,133 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                             };
                         }
 
-                        if (r.Value.StatusCode == (HttpStatusCode)429 && attemptCount <= 5)
+                        if (r.Value.StatusCode == (HttpStatusCode) 429 && attemptCount <= 5)
+                        {
+                            if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
+                            {
+                                string tryAfter = outvalues.FirstOrDefault() ?? "0";
+                                retryInterval = int.Parse(tryAfter);
+                                logger.Warn($"Rate limit encountered, backoff interval of {retryInterval} found");
+                            }
+                            else
+                            {
+                                logger.Warn("Rate limit encountered, but no backoff interval specified");
+                            }
+
+                            var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
+                            stepsToRetry.Add(step.Value);
+                            continue;
+                        }
+
+                        if (ignoreRefAlreadyExists && r.Value.StatusCode == HttpStatusCode.BadRequest && er.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
+                        {
+                            logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
+                            continue;
+                        }
+
+                        exceptions.Add(new ServiceException(er.Error, r.Value.Headers, r.Value.StatusCode));
+                    }
+                }
+            }
+
+            if (stepsToRetry.Count > 0 && attemptCount <= 5)
+            {
+                BatchRequestContent newContent = new BatchRequestContent();
+
+                foreach (var stepToRetry in stepsToRetry)
+                {
+                    newContent.AddBatchRequestStep(stepToRetry);
+                }
+
+                if (retryInterval == 0)
+                {
+                    retryInterval = 30;
+                }
+
+                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {attemptCount}");
+                await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
+                await GraphHelper.SubmitBatchContent(client, newContent, ignoreNotFound, ignoreRefAlreadyExists, token, ++attemptCount);
+            }
+
+            if (exceptions.Count == 1)
+            {
+                throw exceptions[0];
+            }
+
+            if (exceptions.Count > 1)
+            {
+                throw new AggregateException("Multiple operations failed", exceptions);
+            }
+        }
+
+        internal static async Task SubmitAsBatches(Beta.GraphServiceClient client, List<BatchRequestStep> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
+        {
+            BatchRequestContent content = new BatchRequestContent();
+            int count = 0;
+
+            foreach (BatchRequestStep r in requests)
+            {
+                if (count == GraphHelper.MaxJsonBatchRequests)
+                {
+                    await GraphHelper.SubmitBatchContent(client, content, ignoreNotFound, ignoreRefAlreadyExists, token);
+                    count = 0;
+                    content = new BatchRequestContent();
+                }
+
+                content.AddBatchRequestStep(r);
+                count++;
+            }
+
+            if (count > 0)
+            {
+                await GraphHelper.SubmitBatchContent(client, content, ignoreNotFound, ignoreRefAlreadyExists, token);
+            }
+        }
+
+        private static async Task SubmitBatchContent(Beta.GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
+        {
+            BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, content.BatchRequestSteps.Count + 1);
+
+            List<Exception> exceptions = new List<Exception>();
+            List<BatchRequestStep> stepsToRetry = new List<BatchRequestStep>();
+            int retryInterval = 0;
+
+            var responses = await response.GetResponsesAsync();
+
+            foreach (KeyValuePair<string, HttpResponseMessage> r in responses)
+            {
+                using (r.Value)
+                {
+                    if (!r.Value.IsSuccessStatusCode)
+                    {
+                        if (ignoreNotFound && r.Value.StatusCode == HttpStatusCode.NotFound)
+                        {
+                            logger.Warn($"The request ({r.Key}) to remove object failed because it did not exist");
+                            continue;
+                        }
+
+                        ErrorResponse er;
+                        try
+                        {
+                            string econtent = await r.Value.Content.ReadAsStringAsync();
+                            logger.Trace(econtent);
+
+                            er = JsonConvert.DeserializeObject<ErrorResponse>(econtent);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Trace(ex, "The error response could not be deserialized");
+                            er = new ErrorResponse
+                            {
+                                Error = new Error
+                                {
+                                    Code = r.Value.StatusCode.ToString(),
+                                    Message = r.Value.ReasonPhrase
+                                }
+                            };
+                        }
+
+                        if (r.Value.StatusCode == (HttpStatusCode) 429 && attemptCount <= 5)
                         {
                             if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
                             {
@@ -145,6 +271,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 throw exceptions[0];
             }
+
             if (exceptions.Count > 1)
             {
                 throw new AggregateException("Multiple operations failed", exceptions);
@@ -246,6 +373,26 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
 
             return result;
+        }
+
+        public static void AssignNullToProperty(this Entity e, string name)
+        {
+            if (e.AdditionalData == null)
+            {
+                e.AdditionalData = new Dictionary<string, object>();
+            }
+
+            e.AdditionalData.Add(name, null);
+        }
+
+        public static void AssignNullToProperty(this Beta.Entity e, string name)
+        {
+            if (e.AdditionalData == null)
+            {
+                e.AdditionalData = new Dictionary<string, object>();
+            }
+
+            e.AdditionalData.Add(name, null);
         }
     }
 }

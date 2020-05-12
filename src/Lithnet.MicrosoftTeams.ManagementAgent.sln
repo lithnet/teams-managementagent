@@ -7,19 +7,32 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lithnet.MicrosoftTeams.Mana
 EndProject
 Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "Lithnet.MicrosoftTeams.ManagementAgent.Setup", "Lithnet.MicrosoftTeams.ManagementAgent.Setup\Lithnet.MicrosoftTeams.ManagementAgent.Setup.wixproj", "{937F89F4-5839-4B3B-9AFB-109D2D1709BF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lithnet.MicrosoftTeams.ManagementAgent.Tests", "Lithnet.MicrosoftTeams.ManagementAgent.Tests\Lithnet.MicrosoftTeams.ManagementAgent.Tests.csproj", "{5C295AF9-786A-49E5-B7C6-21FF71EA228D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
+		UnitTesting|Any CPU = UnitTesting|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2C0596D6-93E2-46A6-9937-7724B34CF0B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2C0596D6-93E2-46A6-9937-7724B34CF0B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C0596D6-93E2-46A6-9937-7724B34CF0B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C0596D6-93E2-46A6-9937-7724B34CF0B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2C0596D6-93E2-46A6-9937-7724B34CF0B2}.UnitTesting|Any CPU.ActiveCfg = UnitTesting|Any CPU
+		{2C0596D6-93E2-46A6-9937-7724B34CF0B2}.UnitTesting|Any CPU.Build.0 = UnitTesting|Any CPU
 		{937F89F4-5839-4B3B-9AFB-109D2D1709BF}.Debug|Any CPU.ActiveCfg = Debug|x86
 		{937F89F4-5839-4B3B-9AFB-109D2D1709BF}.Debug|Any CPU.Build.0 = Debug|x86
 		{937F89F4-5839-4B3B-9AFB-109D2D1709BF}.Release|Any CPU.ActiveCfg = Release|x86
+		{937F89F4-5839-4B3B-9AFB-109D2D1709BF}.UnitTesting|Any CPU.ActiveCfg = Release|x86
+		{937F89F4-5839-4B3B-9AFB-109D2D1709BF}.UnitTesting|Any CPU.Build.0 = Release|x86
+		{5C295AF9-786A-49E5-B7C6-21FF71EA228D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C295AF9-786A-49E5-B7C6-21FF71EA228D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C295AF9-786A-49E5-B7C6-21FF71EA228D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C295AF9-786A-49E5-B7C6-21FF71EA228D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5C295AF9-786A-49E5-B7C6-21FF71EA228D}.UnitTesting|Any CPU.ActiveCfg = UnitTesting|Any CPU
+		{5C295AF9-786A-49E5-B7C6-21FF71EA228D}.UnitTesting|Any CPU.Build.0 = UnitTesting|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
