@@ -21,57 +21,105 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
     public class ChannelExportProviderTests
     {
         static IExportContext context;
+        static List<string> teamsToDelete;
+        static ChannelExportProvider channelExportProvider;
+        static TeamExportProvider teamExportProvider;
+
 
         [ClassInitialize]
         public static void InitializeTests(TestContext d)
         {
             context = new TestExportContext();
+            teamsToDelete = new List<string>();
+
+            channelExportProvider = new ChannelExportProvider();
+            channelExportProvider.Initialize(context);
+
+            teamExportProvider = new TeamExportProvider();
+            teamExportProvider.Initialize(context);
         }
 
-        [TestMethod()]
-        public async Task PutCSEntryChangeAsyncTest()
+        [ClassCleanup]
+        public static async Task Cleanup()
         {
-            string teamid = null;
-            string channelid = null;
+            List<Exception> exceptions = new List<Exception>();
 
-            try
+            foreach (string teamid in teamsToDelete)
             {
-                ChannelExportProvider channelExportProvider = new ChannelExportProvider();
-                channelExportProvider.Initialize(context);
-
-                TeamExportProvider teamExportProvider = new TeamExportProvider();
-                teamExportProvider.Initialize(context);
-
-                CSEntryChange team = CSEntryChange.Create();
-                team.ObjectType = "team";
-                team.ObjectModificationType = ObjectModificationType.Add;
-                team.CreateAttributeAdd("displayName", "mytestteam");
-                team.CreateAttributeAdd("member", UnitTestControl.Users.Take(20).Select(t => t.Id).ToList<object>());
-                team.CreateAttributeAdd("owner", UnitTestControl.Users.GetRange(20, 20).Select(t => t.Id).ToList<object>());
-
-                var teamResult = await teamExportProvider.PutCSEntryChangeAsync(team);
-
-                Assert.IsTrue(teamResult.ErrorCode == MAExportError.Success);
-
-                teamid = teamResult.AnchorAttributes[0].GetValueAdd<string>();
-
-                CSEntryChange channel = CSEntryChange.Create();
-                channel.ObjectType = "publiChannel";
-                channel.ObjectModificationType = ObjectModificationType.Add;
-                channel.CreateAttributeAdd("team", teamid);
-                channel.CreateAttributeAdd("displayName", "My test channel");
-
-                var channelResult = await channelExportProvider.PutCSEntryChangeAsync(channel);
-                channelid = channelResult.AnchorAttributes["id"].GetValueAdd<string>();
-
-                Assert.IsTrue(channelResult.ErrorCode == MAExportError.Success);
-            }
-            finally
-            {
-                if (teamid != null)
+                try
                 {
                     await GraphHelperGroups.DeleteGroup(UnitTestControl.Client, teamid, context.Token);
                 }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            }
+
+            if (exceptions.Count > 0)
+            {
+                throw new AggregateException("One or more groups could not be cleaned up", exceptions);
+            }
+        }
+
+        [TestMethod()]
+        public async Task CreatePublicChannelTest()
+        {
+            string teamid = await CreateTeamWithMembers();
+
+            CSEntryChange channel = CSEntryChange.Create();
+            channel.ObjectType = "publicChannel";
+            channel.ObjectModificationType = ObjectModificationType.Add;
+            channel.CreateAttributeAdd("team", teamid);
+            channel.CreateAttributeAdd("displayName", "my test channel");
+            channel.CreateAttributeAdd("description", "my description");
+            channel.CreateAttributeAdd("isFavoriteByDefault", true);
+
+            CSEntryChangeResult channelResult = await channelExportProvider.PutCSEntryChangeAsync(channel);
+            string channelid = channelResult.GetAnchorValueOrDefault<string>("id");
+            Assert.IsTrue(channelResult.ErrorCode == MAExportError.Success);
+
+            Beta.Channel newChannel = await GetChannelFromTeam(teamid, channelid);
+
+            Assert.AreEqual("my test channel", newChannel.DisplayName);
+            Assert.AreEqual("my description", newChannel.Description);
+            Assert.AreEqual(true, newChannel.IsFavoriteByDefault);
+        }
+
+        private static async Task<string> CreateTeamWithMembers()
+        {
+            CSEntryChange team = CSEntryChange.Create();
+            team.ObjectType = "team";
+            team.ObjectModificationType = ObjectModificationType.Add;
+            team.CreateAttributeAdd("displayName", "mytestteam");
+            team.CreateAttributeAdd("member", UnitTestControl.Users.Take(20).Select(t => t.Id).ToList<object>());
+            team.CreateAttributeAdd("owner", UnitTestControl.Users.GetRange(20, 20).Select(t => t.Id).ToList<object>());
+
+            CSEntryChangeResult teamResult = await teamExportProvider.PutCSEntryChangeAsync(team);
+            AddTeamToCleanupTask(teamResult);
+
+            Assert.IsTrue(teamResult.ErrorCode == MAExportError.Success);
+
+            return teamResult.GetAnchorValueOrDefault<string>("id");
+        }
+
+        private static async Task<Beta.Channel> GetChannelFromTeam(string teamid, string channelid)
+        {
+            List<Beta.Channel> channels = await GraphHelperTeams.GetChannels(UnitTestControl.BetaClient, teamid, CancellationToken.None);
+            return channels.First(t => t.Id == channelid);
+        }
+
+        private static void AddTeamToCleanupTask(CSEntryChangeResult c)
+        {
+            string teamid = c.GetAnchorValueOrDefault<string>("id");
+            AddTeamToCleanupTask(teamid);
+        }
+
+        private static void AddTeamToCleanupTask(string id)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                teamsToDelete.Add(id);
             }
         }
     }

@@ -69,23 +69,20 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             this.usersToIgnore.Clear();
 
-            if (this.context.ConfigParameters.Contains(ConfigParameterNames.UsersToIgnore))
-            {
-                string raw = this.context.ConfigParameters[ConfigParameterNames.UsersToIgnore].Value;
+            string raw = this.context.ConfigParameters.GetStringValueOrDefault(ConfigParameterNames.UsersToIgnore);
 
-                if (!string.IsNullOrWhiteSpace(raw))
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                foreach (string user in raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    foreach (string user in raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        this.usersToIgnore.Add(user.ToLower().Trim());
-                    }
+                    this.usersToIgnore.Add(user.ToLower().Trim());
                 }
             }
         }
 
         private async Task ProduceObjects(ITargetBlock<Beta.Group> target)
         {
-            var client = ((GraphConnectionContext) this.context.ConnectionContext).BetaClient;
+            var client = ((GraphConnectionContext)this.context.ConnectionContext).BetaClient;
             await GraphHelperGroups.GetGroups(client, target, this.context.ConfigParameters[ConfigParameterNames.FilterQuery].Value, this.token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
             target.Complete();
         }
@@ -100,7 +97,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         /// <returns></returns>
         private async Task ProduceObjectsDelta(ITargetBlock<Group> target)
         {
-            var client = ((GraphConnectionContext) this.context.ConnectionContext).Client;
+            var client = ((GraphConnectionContext)this.context.ConnectionContext).Client;
 
             string newDeltaLink;
 

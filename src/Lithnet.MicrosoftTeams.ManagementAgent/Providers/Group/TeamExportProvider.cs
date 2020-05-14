@@ -101,7 +101,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     if (teamid != null)
                     {
                         logger.Error($"{csentry.DN}: An exception occurred while creating the team, rolling back by deleting it");
-                        await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay));
+                        await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay), this.token);
                         await GraphHelperGroups.DeleteGroup(this.client, teamid, CancellationToken.None);
                         logger.Info($"{csentry.DN}: The group was deleted");
                     }
@@ -220,7 +220,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         logger.Warn($"{csentry.DN}: Deleting group with conflicting mailNickname '{mailNickname}'");
                         string existingGroup = await GraphHelperGroups.GetGroupIdByMailNickname(this.client, mailNickname, this.token);
                         await GraphHelperGroups.DeleteGroup(this.client, existingGroup, this.token);
-                        await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay));
+                        await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay), this.token);
 
                         await GraphHelperGroups.UpdateGroup(this.client, teamID, group, this.token);
                         logger.Info($"{csentry.DN}: Updated group {group.Id}");

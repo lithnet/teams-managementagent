@@ -66,8 +66,8 @@
     <Reference Include="Lithnet.Ecma2Framework, Version=1.0.7437.35088, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Lithnet.Ecma2Framework.1.0.7437.35088\lib\net461\Lithnet.Ecma2Framework.dll</HintPath>
     </Reference>
-    <Reference Include="Lithnet.MetadirectoryServices, Version=1.0.7437.27633, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Lithnet.MetadirectoryServices.1.0.7437.27633\lib\net461\Lithnet.MetadirectoryServices.dll</HintPath>
+    <Reference Include="Lithnet.MetadirectoryServices, Version=1.0.7438.21872, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lithnet.MetadirectoryServices.1.0.7438.21872\lib\net461\Lithnet.MetadirectoryServices.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.Data.Edm, Version=5.8.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
