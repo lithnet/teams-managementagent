@@ -81,6 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConfigParameterNames.cs" />
+    <Compile Include="Graph\GraphBatchResult.cs" />
     <Compile Include="Graph\GraphHelper.cs" />
     <Compile Include="Graph\GraphHelperGroups.cs" />
     <Compile Include="Graph\GraphHelperTeams.cs" />

@@ -26,279 +26,229 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        internal static async Task SubmitAsBatches(GraphServiceClient client, List<BatchRequestStep> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
+        internal static async Task SubmitAsBatches(GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
         {
-            BatchRequestContent content = new BatchRequestContent();
-            int count = 0;
-
-            foreach (BatchRequestStep r in requests)
+            foreach (var batch in GetBatchPartitions(requests))
             {
-                if (count == MaxJsonBatchRequests)
-                {
-                    await SubmitBatchContent(client, content, ignoreNotFound, ignoreRefAlreadyExists, token);
-                    count = 0;
-                    content = new BatchRequestContent();
-                }
-
-                content.AddBatchRequestStep(r);
-                count++;
-            }
-
-            if (count > 0)
-            {
-                await SubmitBatchContent(client, content, ignoreNotFound, ignoreRefAlreadyExists, token);
+                await SubmitBatchContent(client, batch, ignoreNotFound, ignoreRefAlreadyExists, token);
             }
         }
 
-        private static async Task SubmitBatchContent(GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
+        internal static async Task SubmitAsBatches(Beta.GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
         {
+            foreach (var batch in GetBatchPartitions(requests))
+            {
+                await SubmitBatchContent(client, batch, ignoreNotFound, ignoreRefAlreadyExists, token);
+            }
+        }
+
+        private static IEnumerable<Dictionary<string, Func<BatchRequestStep>>> GetBatchPartitions(Dictionary<string, Func<BatchRequestStep>> requests)
+        {
+            Dictionary<string, Func<BatchRequestStep>> batch = new Dictionary<string, Func<BatchRequestStep>>();
+
+            foreach (KeyValuePair<string, Func<BatchRequestStep>> r in requests)
+            {
+                if (batch.Count == MaxJsonBatchRequests)
+                {
+                    yield return batch;
+                    batch = new Dictionary<string, Func<BatchRequestStep>>();
+                }
+
+                batch.Add(r.Key, r.Value);
+            }
+
+            if (batch.Count > 0)
+            {
+                yield return batch;
+            }
+        }
+
+        private static async Task SubmitBatchContent(GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
+        {
+            BatchRequestContent content = GraphHelper.BuildBatchRequest(requests);
+
             BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, content.BatchRequestSteps.Count + 1);
 
-            List<Exception> exceptions = new List<Exception>();
-            List<BatchRequestStep> stepsToRetry = new List<BatchRequestStep>();
-            int retryInterval = 0;
+            List<GraphBatchResult> results = await GetBatchResults(await response.GetResponsesAsync(), ignoreNotFound, ignoreRefAlreadyExists, attemptCount <= MaxRetry);
 
-            var responses = await response.GetResponsesAsync();
+            GraphHelper.ThrowOnExceptions(results);
+
+            int retryInterval = 8 * attemptCount;
+            Dictionary<string, Func<BatchRequestStep>> stepsToRetry = new Dictionary<string, Func<BatchRequestStep>>();
+
+            foreach (var result in results.Where(t => t.IsRetryable))
+            {
+                retryInterval = Math.Max(result.RetryInterval, retryInterval);
+                stepsToRetry.Add(result.ID, requests[result.ID]);
+            }
+
+            if (stepsToRetry.Count > 0)
+            {
+                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {attemptCount}");
+                await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
+                await GraphHelper.SubmitBatchContent(client, stepsToRetry, ignoreNotFound, ignoreRefAlreadyExists, token, ++attemptCount);
+            }
+        }
+
+        private static async Task SubmitBatchContent(Beta.GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
+        {
+            BatchRequestContent content = GraphHelper.BuildBatchRequest(requests);
+
+            BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, content.BatchRequestSteps.Count + 1);
+
+            List<GraphBatchResult> results = await GetBatchResults(await response.GetResponsesAsync(), ignoreNotFound, ignoreRefAlreadyExists, attemptCount <= MaxRetry);
+
+            GraphHelper.ThrowOnExceptions(results);
+
+            int retryInterval = 8 * attemptCount;
+            Dictionary<string, Func<BatchRequestStep>> stepsToRetry = new Dictionary<string, Func<BatchRequestStep>>();
+
+            foreach (var result in results.Where(t => t.IsRetryable))
+            {
+                retryInterval = Math.Max(result.RetryInterval, retryInterval);
+                stepsToRetry.Add(result.ID, requests[result.ID]);
+            }
+
+            if (stepsToRetry.Count > 0)
+            {
+                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {attemptCount}");
+                await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
+                await GraphHelper.SubmitBatchContent(client, stepsToRetry, ignoreNotFound, ignoreRefAlreadyExists, token, ++attemptCount);
+            }
+        }
+
+        private static BatchRequestContent BuildBatchRequest(Dictionary<string, Func<BatchRequestStep>> requests)
+        {
+            BatchRequestContent content = new BatchRequestContent();
+
+            foreach (KeyValuePair<string, Func<BatchRequestStep>> item in requests)
+            {
+                content.AddBatchRequestStep(item.Value.Invoke());
+            }
+
+            return content;
+        }
+
+        private static void ThrowOnExceptions(List<GraphBatchResult> results)
+        {
+            List<Exception> exceptions = results.Where(t => t.IsFailed).Select(t => t.Exception).ToList();
+
+            if (exceptions.Count > 0)
+            {
+                if (exceptions.Count == 1)
+                {
+                    throw exceptions[0];
+                }
+
+                if (exceptions.Count > 1)
+                {
+                    throw new AggregateException("Multiple operations failed", exceptions);
+                }
+            }
+        }
+
+        private static async Task<List<GraphBatchResult>> GetBatchResults(Dictionary<string, HttpResponseMessage> responses, bool ignoreNotFound, bool ignoreRefAlreadyExists, bool canRetry)
+        {
+            List<GraphBatchResult> results = new List<GraphBatchResult>();
 
             foreach (KeyValuePair<string, HttpResponseMessage> r in responses)
             {
                 using (r.Value)
                 {
-                    if (r.Value.IsSuccessStatusCode)
+                    GraphBatchResult result = new GraphBatchResult();
+                    result.ID = r.Key;
+                    result.IsSuccess = r.Value.IsSuccessStatusCode;
+                    results.Add(result);
+
+                    if (result.IsSuccess)
                     {
                         continue;
                     }
 
                     if (ignoreNotFound && r.Value.StatusCode == HttpStatusCode.NotFound)
                     {
+                        result.IsSuccess = true;
                         GraphHelper.logger.Warn($"The request ({r.Key}) to remove object failed because it did not exist");
                         continue;
                     }
 
-                    ErrorResponse er;
-                    try
-                    {
-                        string econtent = await r.Value.Content.ReadAsStringAsync();
-                        GraphHelper.logger.Trace(econtent);
+                    result.ErrorResponse = await GraphHelper.GetErrorResponseFromHttpResponseMessage(r);
 
-                        er = JsonConvert.DeserializeObject<ErrorResponse>(econtent);
-                    }
-                    catch (Exception ex)
+                    if (ignoreRefAlreadyExists && r.Value.StatusCode == HttpStatusCode.BadRequest && result.ErrorResponse.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
                     {
-                        GraphHelper.logger.Trace(ex, "The error response could not be deserialized");
-                        er = new ErrorResponse
-                        {
-                            Error = new Error
-                            {
-                                Code = r.Value.StatusCode.ToString(),
-                                Message = r.Value.ReasonPhrase
-                            }
-                        };
+                        result.IsSuccess = true;
+                        GraphHelper.logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
+                        continue;
                     }
 
-                    if (r.Value.StatusCode == (HttpStatusCode)429 && attemptCount <= 5)
+                    if (canRetry && r.Value.StatusCode == (HttpStatusCode)429)
                     {
-                        if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
+                        if (r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
                         {
                             string tryAfter = outvalues.FirstOrDefault() ?? "0";
-                            retryInterval = int.Parse(tryAfter);
-                            GraphHelper.logger.Warn($"Rate limit encountered, backoff interval of {retryInterval} found");
+                            result.RetryInterval = int.Parse(tryAfter);
+                            GraphHelper.logger.Warn($"Rate limit encountered, backoff interval of {result.RetryInterval} found");
                         }
                         else
                         {
                             GraphHelper.logger.Warn("Rate limit encountered, but no backoff interval specified");
                         }
 
-                        var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
-                        stepsToRetry.Add(step.Value);
+                        result.IsRetryable = true;
                         continue;
                     }
 
-                    if (ignoreRefAlreadyExists && r.Value.StatusCode == HttpStatusCode.BadRequest && er.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
+                    if (canRetry && r.Value.StatusCode == HttpStatusCode.NotFound && string.Equals(result.ErrorResponse.Error.Code, "Request_ResourceNotFound", StringComparison.OrdinalIgnoreCase))
                     {
-                        GraphHelper.logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
+                        result.IsRetryable = true;
                         continue;
                     }
 
-                    if (r.Value.StatusCode == HttpStatusCode.NotFound && string.Equals(er.Error.Code, "Request_ResourceNotFound", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
-                        stepsToRetry.Add(step.Value);
-                        continue;
-                    }
-
-                    exceptions.Add(new ServiceException(er.Error, r.Value.Headers, r.Value.StatusCode));
+                    result.IsFailed = true;
+                    result.Exception = new ServiceException(result.ErrorResponse.Error, r.Value.Headers, r.Value.StatusCode);
                 }
             }
 
-            if (stepsToRetry.Count > 0 && attemptCount <= 5)
-            {
-                BatchRequestContent newContent = new BatchRequestContent();
-
-                foreach (var stepToRetry in stepsToRetry)
-                {
-                    newContent.AddBatchRequestStep(stepToRetry);
-                }
-
-                if (retryInterval == 0)
-                {
-                    retryInterval = 8 * attemptCount;
-                }
-
-                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {attemptCount}");
-                await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
-                await GraphHelper.SubmitBatchContent(client, newContent, ignoreNotFound, ignoreRefAlreadyExists, token, ++attemptCount);
-            }
-
-            if (exceptions.Count == 1)
-            {
-                throw exceptions[0];
-            }
-
-            if (exceptions.Count > 1)
-            {
-                throw new AggregateException("Multiple operations failed", exceptions);
-            }
+            return results;
         }
 
-        internal static async Task SubmitAsBatches(Beta.GraphServiceClient client, List<BatchRequestStep> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
+        private static async Task<ErrorResponse> GetErrorResponseFromHttpResponseMessage(KeyValuePair<string, HttpResponseMessage> r)
         {
-            BatchRequestContent content = new BatchRequestContent();
-            int count = 0;
-
-            foreach (BatchRequestStep r in requests)
+            ErrorResponse er;
+            try
             {
-                if (count == GraphHelper.MaxJsonBatchRequests)
+                string econtent = await r.Value.Content.ReadAsStringAsync();
+                GraphHelper.logger.Trace(econtent);
+
+                er = JsonConvert.DeserializeObject<ErrorResponse>(econtent);
+            }
+            catch (Exception ex)
+            {
+                GraphHelper.logger.Trace(ex, "The error response could not be deserialized");
+
+                er = new ErrorResponse
                 {
-                    await GraphHelper.SubmitBatchContent(client, content, ignoreNotFound, ignoreRefAlreadyExists, token);
-                    count = 0;
-                    content = new BatchRequestContent();
-                }
-
-                content.AddBatchRequestStep(r);
-                count++;
+                    Error = new Error
+                    {
+                        Code = r.Value.StatusCode.ToString(),
+                        Message = r.Value.ReasonPhrase
+                    }
+                };
             }
 
-            if (count > 0)
-            {
-                await GraphHelper.SubmitBatchContent(client, content, ignoreNotFound, ignoreRefAlreadyExists, token);
-            }
-        }
-
-        private static async Task SubmitBatchContent(Beta.GraphServiceClient client, BatchRequestContent content, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
-        {
-            BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, content.BatchRequestSteps.Count + 1);
-
-            List<Exception> exceptions = new List<Exception>();
-            List<BatchRequestStep> stepsToRetry = new List<BatchRequestStep>();
-            int retryInterval = 0;
-
-            var responses = await response.GetResponsesAsync();
-
-            foreach (KeyValuePair<string, HttpResponseMessage> r in responses)
-            {
-                using (r.Value)
-                {
-                    if (r.Value.IsSuccessStatusCode)
-                    {
-                        continue;
-                    }
-
-                    if (ignoreNotFound && r.Value.StatusCode == HttpStatusCode.NotFound)
-                    {
-                        GraphHelper.logger.Warn($"The request ({r.Key}) to remove object failed because it did not exist");
-                        continue;
-                    }
-
-                    ErrorResponse er;
-                    try
-                    {
-                        string econtent = await r.Value.Content.ReadAsStringAsync();
-                        GraphHelper.logger.Trace(econtent);
-
-                        er = JsonConvert.DeserializeObject<ErrorResponse>(econtent);
-                    }
-                    catch (Exception ex)
-                    {
-                        GraphHelper.logger.Trace(ex, "The error response could not be deserialized");
-                        er = new ErrorResponse
-                        {
-                            Error = new Error
-                            {
-                                Code = r.Value.StatusCode.ToString(),
-                                Message = r.Value.ReasonPhrase
-                            }
-                        };
-                    }
-
-                    if (r.Value.StatusCode == (HttpStatusCode)429 && attemptCount <= 5)
-                    {
-                        if (retryInterval == 0 && r.Value.Headers.TryGetValues("Retry-After", out IEnumerable<string> outvalues))
-                        {
-                            string tryAfter = outvalues.FirstOrDefault() ?? "0";
-                            retryInterval = int.Parse(tryAfter);
-                            GraphHelper.logger.Warn($"Rate limit encountered, backoff interval of {retryInterval} found");
-                        }
-                        else
-                        {
-                            GraphHelper.logger.Warn("Rate limit encountered, but no backoff interval specified");
-                        }
-
-                        var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
-                        stepsToRetry.Add(step.Value);
-                        continue;
-                    }
-
-                    if (ignoreRefAlreadyExists && r.Value.StatusCode == HttpStatusCode.BadRequest && er.Error.Message.IndexOf("object references already exist", StringComparison.OrdinalIgnoreCase) > 0)
-                    {
-                        GraphHelper.logger.Warn($"The request ({r.Key}) to add object failed because it already exists");
-                        continue;
-                    }
-
-                    if (r.Value.StatusCode == HttpStatusCode.NotFound && string.Equals(er.Error.Code, "Request_ResourceNotFound", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var step = content.BatchRequestSteps.FirstOrDefault(t => t.Key == r.Key);
-                        stepsToRetry.Add(step.Value);
-                        continue;
-                    }
-
-                    exceptions.Add(new ServiceException(er.Error, r.Value.Headers, r.Value.StatusCode));
-                }
-            }
-
-            if (stepsToRetry.Count > 0 && attemptCount <= 5)
-            {
-                BatchRequestContent newContent = new BatchRequestContent();
-
-                foreach (var stepToRetry in stepsToRetry)
-                {
-                    newContent.AddBatchRequestStep(stepToRetry);
-                }
-
-                if (retryInterval == 0)
-                {
-                    retryInterval = 30;
-                }
-
-                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {attemptCount}");
-                await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
-                await SubmitBatchContent(client, newContent, ignoreNotFound, ignoreRefAlreadyExists, token, ++attemptCount);
-            }
-
-            if (exceptions.Count == 1)
-            {
-                throw exceptions[0];
-            }
-
-            if (exceptions.Count > 1)
-            {
-                throw new AggregateException("Multiple operations failed", exceptions);
-            }
+            return er;
         }
 
         internal static BatchRequestStep GenerateBatchRequestStep(HttpMethod method, string id, string requestUrl)
         {
             HttpRequestMessage request = new HttpRequestMessage(method, requestUrl);
+            return new BatchRequestStep(id, request);
+        }
+
+        internal static BatchRequestStep GenerateBatchRequestStepJsonContent(HttpMethod method, string id, string requesrUrl, string jsonbody)
+        {
+            HttpRequestMessage request = new HttpRequestMessage(method, requesrUrl);
+            request.Content = new StringContent(jsonbody, Encoding.UTF8, "application/json");
             return new BatchRequestStep(id, request);
         }
 

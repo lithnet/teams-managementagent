@@ -46,14 +46,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return;
             }
 
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+            Dictionary<string, Func<BatchRequestStep>> requests = new Dictionary<string, Func<BatchRequestStep>>();
 
             foreach (string member in members)
             {
-                HttpRequestMessage createEventMessage = new HttpRequestMessage(HttpMethod.Post, client.Groups[groupid].Members.References.Request().RequestUrl);
-                createEventMessage.Content = CreateStringContentForMemberId(member);
-
-                requests.Add(new BatchRequestStep(member, createEventMessage));
+                requests.Add(member, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member, client.Groups[groupid].Members.References.Request().RequestUrl, CreateStringContentForMemberId(member)));
             }
 
             logger.Trace($"Adding {requests.Count} members in batch request for group {groupid}");
@@ -68,14 +65,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return;
             }
 
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+            Dictionary<string, Func<BatchRequestStep>> requests = new Dictionary<string, Func<BatchRequestStep>>();
 
             foreach (string member in members)
             {
-                HttpRequestMessage createEventMessage = new HttpRequestMessage(HttpMethod.Post, client.Groups[groupid].Owners.References.Request().RequestUrl);
-                createEventMessage.Content = CreateStringContentForMemberId(member);
-
-                requests.Add(new BatchRequestStep(member, createEventMessage));
+                requests.Add(member, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member, client.Groups[groupid].Owners.References.Request().RequestUrl, CreateStringContentForMemberId(member)));
             }
 
             logger.Trace($"Adding {requests.Count} owners in batch request for group {groupid}");
@@ -89,11 +83,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return;
             }
 
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+            Dictionary<string, Func<BatchRequestStep>> requests = new Dictionary<string, Func<BatchRequestStep>>();
 
             foreach (string member in members)
             {
-                requests.Add(GraphHelper.GenerateBatchRequestStep(HttpMethod.Delete, member, client.Groups[groupid].Members[member].Reference.Request().RequestUrl));
+                requests.Add(member, () => GraphHelper.GenerateBatchRequestStep(HttpMethod.Delete, member, client.Groups[groupid].Members[member].Reference.Request().RequestUrl));
             }
 
             logger.Trace($"Removing {requests.Count} members in batch request for group {groupid}");
@@ -107,11 +101,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return;
             }
 
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+            Dictionary<string, Func<BatchRequestStep>> requests = new Dictionary<string, Func<BatchRequestStep>>();
 
             foreach (string member in members)
             {
-                requests.Add(GraphHelper.GenerateBatchRequestStep(HttpMethod.Delete, member, client.Groups[groupid].Owners[member].Reference.Request().RequestUrl));
+                requests.Add(member, () => GraphHelper.GenerateBatchRequestStep(HttpMethod.Delete, member, client.Groups[groupid].Owners[member].Reference.Request().RequestUrl));
             }
 
             logger.Trace($"Removing {requests.Count} owners in batch request for group {groupid}");
@@ -303,9 +297,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             target.AdditionalData.Add($"mergedGroup-{Guid.NewGuid()}", source.AdditionalData);
         }
 
-        private static StringContent CreateStringContentForMemberId(string member)
+        private static string CreateStringContentForMemberId(string member)
         {
-            return new StringContent("{\"@odata.id\":\"https://graph.microsoft.com/beta/users/" + member + "\"}", Encoding.UTF8, "application/json");
+            return "{\"@odata.id\":\"https://graph.microsoft.com/v1.0/users/" + member + "\"}";
         }
     }
 }

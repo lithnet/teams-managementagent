@@ -48,7 +48,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             List<Beta.AadUserConversationMember> members = new List<Beta.AadUserConversationMember>();
 
-            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token), token, 0);
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token), token, 0, IsGetChannelMembersRetryable);
 
             if (page?.Count > 0)
             {
@@ -72,14 +72,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return;
             }
 
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+            Dictionary<string, Func<BatchRequestStep>> requests = new Dictionary<string, Func<BatchRequestStep>>();
 
             foreach (var member in members)
             {
-                HttpRequestMessage createEventMessage = new HttpRequestMessage(HttpMethod.Post, client.Teams[teamid].Channels[channelid].Members.Request().RequestUrl);
-                createEventMessage.Content = new StringContent(JsonConvert.SerializeObject(member), Encoding.UTF8, "application/json");
-
-                requests.Add(new BatchRequestStep(member.Id, createEventMessage));
+                requests.Add(member.Id, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member.Id, client.Teams[teamid].Channels[channelid].Members.Request().RequestUrl, JsonConvert.SerializeObject(member)));
             }
 
             logger.Trace($"Adding {requests.Count} members in batch request for channel {teamid}:{channelid}");
@@ -94,14 +91,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return;
             }
 
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+            Dictionary<string, Func<BatchRequestStep>> requests = new Dictionary<string, Func<BatchRequestStep>>();
 
             foreach (var member in members)
             {
-                HttpRequestMessage createEventMessage = new HttpRequestMessage(new HttpMethod("PATCH"), client.Teams[teamid].Channels[channelid].Members[member.UserId].Request().RequestUrl);
-                createEventMessage.Content = new StringContent(JsonConvert.SerializeObject(member), Encoding.UTF8, "application/json");
-
-                requests.Add(new BatchRequestStep(member.Id, createEventMessage));
+                requests.Add(member.Id, () => GraphHelper.GenerateBatchRequestStepJsonContent(new HttpMethod("PATCH"), member.Id, client.Teams[teamid].Channels[channelid].Members[member.UserId].Request().RequestUrl, JsonConvert.SerializeObject(member)));
             }
 
             logger.Trace($"Adding {requests.Count} members in batch request for channel {teamid}:{channelid}");
@@ -116,11 +110,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return;
             }
 
-            List<BatchRequestStep> requests = new List<BatchRequestStep>();
+            Dictionary<string, Func<BatchRequestStep>> requests = new Dictionary<string, Func<BatchRequestStep>>();
 
             foreach (var member in members)
             {
-                requests.Add(GraphHelper.GenerateBatchRequestStep(HttpMethod.Delete, member.Id, client.Teams[teamid].Channels[channelid].Members[member.UserId].Request().RequestUrl));
+                requests.Add(member.Id, () => GraphHelper.GenerateBatchRequestStep(HttpMethod.Delete, member.Id, client.Teams[teamid].Channels[channelid].Members[member.UserId].Request().RequestUrl));
             }
 
             logger.Trace($"Removing {requests.Count} members in batch request for channel {teamid}:{channelid}");
@@ -167,18 +161,17 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private static async Task<TeamsAsyncOperation> WaitForTeamsAsyncOperation(Beta.GraphServiceClient client, CancellationToken token, string location)
         {
             TeamsAsyncOperation result;
-            int waitCount = 0;
+            int waitCount = 1;
 
             do
             {
-                await Task.Delay(TimeSpan.FromSeconds(5 * waitCount), token);
-                waitCount++;
-
+                await Task.Delay(TimeSpan.FromSeconds(3 * waitCount), token);
                 var b = new TeamsAsyncOperationRequestBuilder($"{client.BaseUrl}{location}", client);
 
                 // GetAsyncOperation API sometimes returns 'bad request'. Possibly a replication issue. So we create a custom IsRetryable handler for this call only
-                result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await b.Request().GetAsync(token), token, 1, IsRetryable);
+                result = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await b.Request().GetAsync(token), token, 1, GraphHelperTeams.IsGetAsyncOperationRetryable);
                 GraphHelperTeams.logger.Trace($"Result of async operation is {result.Status}: Count : {waitCount}");
+                waitCount++;
             } while (result.Status == TeamsAsyncOperationStatus.InProgress || result.Status == TeamsAsyncOperationStatus.NotStarted);
 
             return result;
@@ -216,9 +209,24 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels[channelid].Request().DeleteAsync(token), token, 1);
         }
 
-        private static bool IsRetryable(Exception ex)
+        private static bool IsGetAsyncOperationRetryable(Exception ex)
         {
-            return ex is TimeoutException || ex is ServiceException se && (se.StatusCode == HttpStatusCode.NotFound || se.StatusCode == HttpStatusCode.BadGateway || se.StatusCode == HttpStatusCode.BadRequest);
+            return ex is TimeoutException ||
+                   (ex is ServiceException se && (
+                       se.StatusCode == HttpStatusCode.NotFound ||
+                       se.StatusCode == HttpStatusCode.BadGateway ||
+                       se.StatusCode == HttpStatusCode.BadRequest));
+        }
+
+        private static bool IsGetChannelMembersRetryable(Exception ex)
+        {
+            return
+                ex is TimeoutException ||
+                (ex is ServiceException se && (
+                    se.StatusCode == HttpStatusCode.NotFound ||
+                    se.StatusCode == HttpStatusCode.BadGateway ||
+                    se.StatusCode == HttpStatusCode.BadRequest ||
+                    (se.StatusCode == HttpStatusCode.Forbidden && se.Message.IndexOf("GetThreadRosterS2SRequest", StringComparison.OrdinalIgnoreCase) >= 0)));
         }
     }
 }

@@ -83,7 +83,52 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             Assert.AreEqual("my test channel", newChannel.DisplayName);
             Assert.AreEqual("my description", newChannel.Description);
-            Assert.AreEqual(true, newChannel.IsFavoriteByDefault);
+
+            // 2020-05-15 This currently doesn't come in with a GET request
+            // https://github.com/microsoftgraph/microsoft-graph-docs/issues/6792
+
+            //Assert.AreEqual(true, newChannel.IsFavoriteByDefault);
+        }
+
+        [TestMethod()]
+        public async Task CreatePrivateChannelTest()
+        {
+            string teamid = await CreateTeamWithMembers();
+
+            var teamMembers = await GraphHelperGroups.GetGroupMembers(UnitTestControl.Client, teamid, CancellationToken.None);
+
+            string ownerid = teamMembers.First().Id;
+
+            CSEntryChange channel = CSEntryChange.Create();
+            channel.ObjectType = "privateChannel";
+            channel.ObjectModificationType = ObjectModificationType.Add;
+            channel.CreateAttributeAdd("team", teamid);
+            channel.CreateAttributeAdd("displayName", "my test channel");
+            channel.CreateAttributeAdd("description", "my description");
+            channel.CreateAttributeAdd("isFavoriteByDefault", true);
+            channel.CreateAttributeAdd("owner", ownerid);
+
+            CSEntryChangeResult channelResult = await channelExportProvider.PutCSEntryChangeAsync(channel);
+            string channelid = channelResult.GetAnchorValueOrDefault<string>("id");
+            Assert.IsTrue(channelResult.ErrorCode == MAExportError.Success);
+
+            Beta.Channel newChannel = await GetChannelFromTeam(teamid, channelid);
+
+            Assert.AreEqual("my test channel", newChannel.DisplayName);
+            Assert.AreEqual("my description", newChannel.Description);
+            Assert.AreEqual(Beta.ChannelMembershipType.Private, newChannel.MembershipType);
+
+            var members = await GraphHelperTeams.GetChannelMembers(UnitTestControl.BetaClient, teamid, channelid, CancellationToken.None);
+
+            Assert.AreEqual(1, members.Count);
+
+            var member = members.First();
+
+            Assert.AreEqual(ownerid, member.UserId);
+            // 2020-05-15 This currently doesn't come in with a GET request
+            // https://github.com/microsoftgraph/microsoft-graph-docs/issues/6792
+
+            //Assert.AreEqual(true, newChannel.IsFavoriteByDefault);
         }
 
         private static async Task<string> CreateTeamWithMembers()

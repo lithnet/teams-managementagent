@@ -131,13 +131,24 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             c.DisplayName = csentry.GetValueAdd<string>("displayName");
             c.Description = csentry.GetValueAdd<string>("description");
 
-            // 2020-05-15 This currently doesn't come in with a GET request, so not now, it needs to be initial-flow only
+            // 2020-05-15 This currently doesn't come in with a GET request, so for now, it needs to be initial-flow only
+            // https://github.com/microsoftgraph/microsoft-graph-docs/issues/6792
             c.IsFavoriteByDefault = csentry.HasAttributeChange("isFavoriteByDefault") && csentry.GetValueAdd<bool>("isFavoriteByDefault");
-            
+
             if (csentry.ObjectType == "privateChannel")
             {
+                if (!csentry.HasAttributeChangeAdd("owner"))
+                {
+                    throw new UnexpectedDataException("At least one owner must be specified when creating a channel");
+                }
+
+                string ownerID = csentry.GetValueAdds<string>("owner").First();
                 c.MembershipType = Beta.ChannelMembershipType.Private;
-                c.Members.Add(new Beta.AadUserConversationMember() { Roles = new[] { "owner" }, UserId = "" });
+                Beta.AadUserConversationMember a = new Beta.AadUserConversationMember() { Roles = new[] { "owner" } };
+                a.AdditionalData = new Dictionary<string, object>();
+                a.AdditionalData.Add("user@odata.bind", $"https://graph.microsoft.com/v1.0/user('{ownerID}')");
+                c.AdditionalData = new Dictionary<string, object>();
+                c.AdditionalData.Add("members", new Beta.AadUserConversationMember[] {a});
             }
 
             logger.Trace($"{csentry.DN}: Channel data: {JsonConvert.SerializeObject(c)}");

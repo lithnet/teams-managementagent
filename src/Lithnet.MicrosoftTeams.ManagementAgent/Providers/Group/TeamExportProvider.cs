@@ -200,6 +200,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             logger.Info($"{csentry.DN}: Created team {tresult}");
 
+            await Task.Delay(TimeSpan.FromSeconds(MicrosoftTeamsMAConfigSection.Configuration.PostGroupCreateDelay), this.token);
+
             return tresult;
         }
 
@@ -237,8 +239,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             IList<string> members = csentry.GetValueAdds<string>("member") ?? new List<string>();
             IList<string> owners = csentry.GetValueAdds<string>("owner") ?? new List<string>();
-
-            owners.RemoveAt(0);
+            if (owners.Count > 0)
+            {
+                owners.RemoveAt(0);
+            }
 
             IList<string> deferredMembers = new List<string>();
             IList<string> deferredOwners = new List<string>();
