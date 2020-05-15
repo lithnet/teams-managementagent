@@ -17,10 +17,10 @@
 
     <!-- Prerequisites -->
 
-    <PropertyRef Id="WIX_IS_NETFRAMEWORK_461_OR_LATER_INSTALLED" />
+    <PropertyRef Id="WIX_IS_NETFRAMEWORK_48_OR_LATER_INSTALLED" />
     <PropertyRef Id="NETFRAMEWORK40FULLINSTALLROOTDIR"/>
 
-    <Condition Message="This application requires .NET Framework 4.6.1. Please install the .NET Framework then run this installer again">
+    <Condition Message="This application requires .NET Framework 4.8. Please install the .NET Framework then run this installer again">
       <![CDATA[Installed OR WIX_IS_NETFRAMEWORK_461_OR_LATER_INSTALLED]]>
     </Condition>
 
