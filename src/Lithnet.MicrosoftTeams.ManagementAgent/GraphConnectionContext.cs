@@ -7,6 +7,7 @@ using Microsoft.Graph;
 using Microsoft.Graph.Auth;
 using Microsoft.Identity.Client;
 using Microsoft.MetadirectoryServices;
+using Newtonsoft.Json;
 using NLog;
 using Logger = NLog.Logger;
 
@@ -19,6 +20,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         public GraphServiceClient Client { get; private set; }
 
         public Beta.GraphServiceClient BetaClient { get; private set; }
+
+        internal UserFilter UserFilter { get; private set; }
 
         internal static GraphConnectionContext GetConnectionContext(KeyedCollection<string, ConfigParameter> configParameters)
         {
@@ -35,10 +38,19 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             ClientCredentialProvider authProvider = new ClientCredentialProvider(confidentialClientApplication);
 
+            JsonConvert.DefaultSettings = () => new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var client = new GraphServiceClient(authProvider);
+            var betaClient = new Beta.GraphServiceClient(authProvider);
+
             return new GraphConnectionContext()
             {
-                Client = new GraphServiceClient(authProvider),
-                BetaClient = new Beta.GraphServiceClient(authProvider)
+                Client = client,
+                BetaClient = betaClient,
+                UserFilter = new UserFilter(client, configParameters)
             };
         }
     }

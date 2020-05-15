@@ -10,6 +10,7 @@ using System.Threading.Tasks.Dataflow;
 using Lithnet.Ecma2Framework;
 using Microsoft.Graph;
 using Microsoft.MetadirectoryServices;
+using Newtonsoft.Json;
 using NLog;
 using NLog.Config;
 using NLog.Targets;

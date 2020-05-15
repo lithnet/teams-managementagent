@@ -130,13 +130,17 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             Beta.Channel c = new Beta.Channel();
             c.DisplayName = csentry.GetValueAdd<string>("displayName");
             c.Description = csentry.GetValueAdd<string>("description");
-            c.IsFavoriteByDefault = csentry.HasAttributeChange("isFavoriteByDefault") && csentry.GetValueAdd<bool>("isFavoriteByDefault");
 
+            // 2020-05-15 This currently doesn't come in with a GET request, so not now, it needs to be initial-flow only
+            c.IsFavoriteByDefault = csentry.HasAttributeChange("isFavoriteByDefault") && csentry.GetValueAdd<bool>("isFavoriteByDefault");
+            
             if (csentry.ObjectType == "privateChannel")
             {
                 c.MembershipType = Beta.ChannelMembershipType.Private;
                 c.Members.Add(new Beta.AadUserConversationMember() { Roles = new[] { "owner" }, UserId = "" });
             }
+
+            logger.Trace($"{csentry.DN}: Channel data: {JsonConvert.SerializeObject(c)}");
 
             var channel = await GraphHelperTeams.CreateChannel(this.betaClient, teamid, c, this.token);
 

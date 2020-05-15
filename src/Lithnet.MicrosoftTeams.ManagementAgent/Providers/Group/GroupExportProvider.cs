@@ -25,10 +25,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private CancellationToken token;
 
+        private UserFilter userFilter;
+
         public void Initialize(IExportContext context)
         {
             this.context = context;
             this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
+            this.userFilter = ((GraphConnectionContext)context.ConnectionContext).UserFilter;
             this.token = context.Token;
         }
 
@@ -513,12 +516,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 if (change.Name == "member")
                 {
                     List<DirectoryObject> result = await GraphHelperGroups.GetGroupMembers(this.client, c.DN, this.token);
-                    valueDeletes = result.Select(t => t.Id).ToList();
+                    valueDeletes = result.Where(u => !this.userFilter.ShouldExclude(u.Id, this.token)).Select(t => t.Id).ToList();
                 }
                 else
                 {
                     List<DirectoryObject> result = await GraphHelperGroups.GetGroupOwners(this.client, c.DN, this.token);
-                    valueDeletes = result.Select(t => t.Id).ToList();
+                    valueDeletes = result.Where(u => !this.userFilter.ShouldExclude(u.Id, this.token)).Select(t => t.Id).ToList();
                 }
             }
 

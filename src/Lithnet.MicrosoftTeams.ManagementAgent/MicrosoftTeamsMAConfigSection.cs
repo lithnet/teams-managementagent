@@ -12,6 +12,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private const string PropRateLimitRequestWindow = "rate-limit-request-window-seconds";
         private const string PropRateLimitRequestLimit = "rate-limit-request-limit";
         private const string PropDeleteAddConflictingGroup = "delete-add-conflicting-group";
+        private const string PropManageGuests = "manage-guests";
 
         internal static MicrosoftTeamsMAConfigSection GetConfiguration()
         {
@@ -52,5 +53,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropDeleteAddConflictingGroup, IsRequired = false, DefaultValue = false)]
         public bool DeleteAddConflictingGroup => (bool)this[MicrosoftTeamsMAConfigSection.PropDeleteAddConflictingGroup];
+
+        [ConfigurationProperty(MicrosoftTeamsMAConfigSection.PropManageGuests, IsRequired = false, DefaultValue = false)]
+        public bool ManageGuests => (bool)this[MicrosoftTeamsMAConfigSection.PropManageGuests];
     }
 }

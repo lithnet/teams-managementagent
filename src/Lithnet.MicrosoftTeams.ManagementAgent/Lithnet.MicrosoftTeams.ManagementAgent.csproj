@@ -100,6 +100,7 @@
     <Compile Include="GraphConnectionContext.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TokenBucket.cs" />
+    <Compile Include="UserFilter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config">
@@ -138,8 +139,8 @@
     <PackageReference Include="Microsoft.Graph.Auth">
       <Version>1.0.0-preview.4</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.Graph.Beta">
-      <Version>0.17.0-preview</Version>
+    <PackageReference Include="microsoft.graph.beta">
+      <Version>0.18.0-preview</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Identity.Client">
       <Version>4.13.0</Version>

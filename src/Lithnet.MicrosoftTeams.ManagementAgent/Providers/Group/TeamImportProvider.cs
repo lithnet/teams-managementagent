@@ -22,8 +22,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        private HashSet<string> usersToIgnore = new HashSet<string>();
-
         private IImportContext context;
 
         private GraphServiceClient client;
@@ -32,13 +30,15 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private CancellationToken token;
 
+        private UserFilter userFilter;
+
         public void Initialize(IImportContext context)
         {
             this.context = context;
             this.token = context.Token;
             this.betaClient = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
             this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
-            this.BuildUsersToIgnore();
+            this.userFilter = ((GraphConnectionContext)context.ConnectionContext).UserFilter;
         }
 
         public async Task GetCSEntryChangesAsync(SchemaType type)
@@ -62,21 +62,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 logger.Error(ex, "There was an error importing the team data");
                 throw;
-            }
-        }
-
-        private void BuildUsersToIgnore()
-        {
-            this.usersToIgnore.Clear();
-
-            string raw = this.context.ConfigParameters.GetStringValueOrDefault(ConfigParameterNames.UsersToIgnore);
-
-            if (!string.IsNullOrWhiteSpace(raw))
-            {
-                foreach (string user in raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    this.usersToIgnore.Add(user.ToLower().Trim());
-                }
             }
         }
 
@@ -298,19 +283,22 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             if (schemaType.Attributes.Contains("member"))
             {
                 List<DirectoryObject> members = await GraphHelperGroups.GetGroupMembers(this.client, c.DN, this.token);
-                if (members.Count > 0)
+                List<object> memberIds = members.Where(u => !this.userFilter.ShouldExclude(u.Id, this.token)).Select(t => t.Id).ToList<object>();
+
+                if (memberIds.Count > 0)
                 {
-                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Where(u => !this.usersToIgnore.Contains(u.Id.ToLower())).Select(t => t.Id).ToList<object>()));
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", memberIds));
                 }
             }
 
             if (schemaType.Attributes.Contains("owner"))
             {
                 List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(this.client, c.DN, this.token);
+                List<object> ownerIds = owners.Where(u => !this.userFilter.ShouldExclude(u.Id, this.token)).Select(t => t.Id).ToList<object>();
 
-                if (owners.Count > 0)
+                if (ownerIds.Count > 0)
                 {
-                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("owner", owners.Where(u => !this.usersToIgnore.Contains(u.Id.ToLower())).Select(t => t.Id).ToList<object>()));
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("owner", ownerIds));
                 }
             }
         }
@@ -441,7 +429,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                                 continue;
                             }
 
-                            if (this.usersToIgnore.Contains(memberValue.ToLower()))
+                            if (this.userFilter.ShouldExclude(memberValue, this.token))
                             {
                                 continue;
                             }

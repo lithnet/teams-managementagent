@@ -15,7 +15,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
 
-        private HashSet<string> usersToIgnore = new HashSet<string>();
+        public static SemaphoreSlim GuestBuilderLock { get; } = new SemaphoreSlim(1, 1);
 
         private IImportContext context;
 
@@ -23,30 +23,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private CancellationToken token;
 
+        private UserFilter userFilter;
+
         public void Initialize(IImportContext context)
         {
             this.context = context;
             this.token = context.Token;
             this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
-            this.BuildUsersToIgnore();
-        }
-
-        private void BuildUsersToIgnore()
-        {
-            this.usersToIgnore.Clear();
-
-            if (this.context.ConfigParameters.Contains(ConfigParameterNames.UsersToIgnore))
-            {
-                string raw = this.context.ConfigParameters[ConfigParameterNames.UsersToIgnore].Value;
-
-                if (!string.IsNullOrWhiteSpace(raw))
-                {
-                    foreach (string user in raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        this.usersToIgnore.Add(user.ToLower().Trim());
-                    }
-                }
-            }
+            this.userFilter = ((GraphConnectionContext)context.ConnectionContext).UserFilter;
         }
 
         public async Task GetCSEntryChangesAsync(SchemaType type)
@@ -122,7 +106,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                         return;
                     }
 
-                    if (this.usersToIgnore.Contains(user.Id.ToLower()))
+                    if (this.userFilter.ShouldExclude(user.Id, this.token))
                     {
                         logger.Trace($"Ignoring user {user.Id}");
                         return;

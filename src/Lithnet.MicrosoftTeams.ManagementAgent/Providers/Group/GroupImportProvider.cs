@@ -27,12 +27,15 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private CancellationToken token;
 
+        private UserFilter userFilter;
+
         public void Initialize(IImportContext context)
         {
             this.context = context;
             this.token = context.Token;
             this.betaClient = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
             this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
+            this.userFilter = ((GraphConnectionContext)context.ConnectionContext).UserFilter;
         }
 
         public async Task GetCSEntryChangesAsync(SchemaType type)
@@ -269,20 +272,23 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             if (schemaType.Attributes.Contains("member"))
             {
-                List<DirectoryObject> members = await GraphHelperGroups.GetGroupMembers(this.client, c.DN,this.token);
-                if (members.Count > 0)
+                List<DirectoryObject> members = await GraphHelperGroups.GetGroupMembers(this.client, c.DN, this.token);
+                List<object> memberIds = members.Where(u => !this.userFilter.ShouldExclude(u.Id, this.token)).Select(t => t.Id).ToList<object>();
+
+                if (memberIds.Count > 0)
                 {
-                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", members.Select(t => t.Id).ToList<object>()));
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("member", memberIds));
                 }
             }
 
             if (schemaType.Attributes.Contains("owner"))
             {
-                List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(this.client, c.DN,this.token);
+                List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(this.client, c.DN, this.token);
+                List<object> ownerIds = owners.Where(u => !this.userFilter.ShouldExclude(u.Id, this.token)).Select(t => t.Id).ToList<object>();
 
-                if (owners.Count > 0)
+                if (ownerIds.Count > 0)
                 {
-                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("owner", owners.Select(t => t.Id).ToList<object>()));
+                    c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd("owner", ownerIds));
                 }
             }
         }

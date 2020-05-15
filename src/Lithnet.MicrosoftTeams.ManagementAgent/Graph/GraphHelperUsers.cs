@@ -33,6 +33,31 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await GraphHelperUsers.GetUsers(request, target, token);
         }
 
+        public static async Task<List<string>> GetGuestUsers(GraphServiceClient client, CancellationToken token)
+        {
+            var request = client.Users.Request().Filter("userType eq 'guest'");
+            List<string> guests = new List<string>();
+
+            var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
+
+            foreach (User user in page.CurrentPage)
+            {
+                guests.Add(user.Id);
+            }
+
+            while (page.NextPageRequest != null)
+            {
+                page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
+
+                foreach (User user in page.CurrentPage)
+                {
+                    guests.Add(user.Id);
+                }
+            }
+
+            return guests;
+        }
+
         private static async Task<string> GetUsersWithDelta(IUserDeltaRequest request, ITargetBlock<User> target, CancellationToken token)
         {
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
