@@ -144,11 +144,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 string ownerID = csentry.GetValueAdds<string>("owner").First();
                 c.MembershipType = Beta.ChannelMembershipType.Private;
-                Beta.AadUserConversationMember a = new Beta.AadUserConversationMember() { Roles = new[] { "owner" } };
-                a.AdditionalData = new Dictionary<string, object>();
-                a.AdditionalData.Add("user@odata.bind", $"https://graph.microsoft.com/v1.0/user('{ownerID}')");
                 c.AdditionalData = new Dictionary<string, object>();
-                c.AdditionalData.Add("members", new Beta.AadUserConversationMember[] {a});
+                c.AdditionalData.Add("members", new[] { GraphHelperTeams.CreateAadUserConversationMember(ownerID, "owner") });
             }
 
             logger.Trace($"{csentry.DN}: Channel data: {JsonConvert.SerializeObject(c)}");
@@ -156,6 +153,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             var channel = await GraphHelperTeams.CreateChannel(this.betaClient, teamid, c, this.token);
 
             logger.Trace($"Created channel {channel.Id} for team {teamid}");
+
+            if (csentry.ObjectType == "privateChannel")
+            {
+                await this.PutMemberChanges(csentry, teamid, channel.Id);
+            }
 
             List<AttributeChange> anchorChanges = new List<AttributeChange>();
             anchorChanges.Add(AttributeChange.CreateAttributeAdd("id", channel.Id));
@@ -230,24 +232,29 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (csentry.ObjectType == "privateChannel")
             {
-                await this.PutMemberChanges(csentry);
+                await this.PutMemberChanges(csentry, teamid, channelid);
             }
         }
 
-        private async Task PutMemberChanges(CSEntryChange csentry)
+        private async Task PutMemberChanges(CSEntryChange csentry, string teamid, string channelid)
         {
             if (!csentry.HasAttributeChange("member") && !csentry.HasAttributeChange("owner"))
             {
                 return;
             }
 
-            string teamid = csentry.GetAnchorValueOrDefault<string>("teamid");
-            string channelid = csentry.GetAnchorValueOrDefault<string>("id");
-
             IList<string> memberAdds = csentry.GetValueAdds<string>("member");
             IList<string> memberDeletes = csentry.GetValueDeletes<string>("member");
             IList<string> ownerAdds = csentry.GetValueAdds<string>("owner");
             IList<string> ownerDeletes = csentry.GetValueDeletes<string>("owner");
+
+            if (csentry.ObjectModificationType == ObjectModificationType.Add)
+            {
+                if (ownerAdds.Count > 0)
+                {
+                    ownerAdds.RemoveAt(0);
+                }
+            }
 
             if (csentry.HasAttributeChangeDelete("member") || csentry.HasAttributeChangeDelete("owner"))
             {
@@ -286,7 +293,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             foreach (var m in memberDeletes)
             {
-                cmToDelete.Add(new Beta.AadUserConversationMember() { UserId = m });
+                cmToDelete.Add(GraphHelperTeams.CreateAadUserConversationMember(m));
             }
 
             // If we try to delete the last owner on a channel, the operation will fail. If we are swapping out the full set of owners (eg an add/delete of 100 owners), this will never succeed if we do a 'delete' operation first.
@@ -313,27 +320,27 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             foreach (var m in ownerDeletes)
             {
-                cmToDelete.Add(new Beta.AadUserConversationMember() { UserId = m });
+                cmToDelete.Add(GraphHelperTeams.CreateAadUserConversationMember(m));
             }
 
             foreach (var m in memberAdds)
             {
-                cmToAdd.Add(new Beta.AadUserConversationMember { UserId = m, AdditionalData = new Dictionary<string, object>() { { "user@odata.bind", $"https://graph.microsoft.com/v1.0/users/{m}" } } });
+                cmToAdd.Add(GraphHelperTeams.CreateAadUserConversationMember(m));
             }
 
             foreach (var m in ownerAdds)
             {
-                cmToAdd.Add(new Beta.AadUserConversationMember { UserId = m, Roles = new[] { "owner" }, AdditionalData = new Dictionary<string, object>() { { "user@odata.bind", $"https://graph.microsoft.com/v1.0/users/{m}" } } });
+                cmToAdd.Add(GraphHelperTeams.CreateAadUserConversationMember(m, "owner"));
             }
 
             foreach (var m in memberUpgradesToOwners)
             {
-                cmToUpdate.Add(new Beta.AadUserConversationMember { UserId = m, Roles = new[] { "owner" }, AdditionalData = new Dictionary<string, object>() { { "user@odata.bind", $"https://graph.microsoft.com/v1.0/users/{m}" } } });
+                cmToUpdate.Add(GraphHelperTeams.CreateAadUserConversationMember(m, "owner"));
             }
 
             foreach (var m in ownerDowngradeToMembers)
             {
-                cmToUpdate.Add(new Beta.AadUserConversationMember { UserId = m, Roles = new string[] { }, AdditionalData = new Dictionary<string, object>() { { "user@odata.bind", $"https://graph.microsoft.com/v1.0/users/{m}" } } });
+                cmToUpdate.Add(GraphHelperTeams.CreateAadUserConversationMember(m, (string[])null));
             }
 
             await GraphHelperTeams.RemoveChannelMembers(this.betaClient, teamid, channelid, cmToDelete, true, this.token);
@@ -343,14 +350,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             if (lastOwnerToRemove != null)
             {
                 cmToDelete.Clear();
-                cmToDelete.Add(new Beta.AadUserConversationMember() { UserId = lastOwnerToRemove });
+                cmToDelete.Add(GraphHelperTeams.CreateAadUserConversationMember(lastOwnerToRemove));
                 await GraphHelperTeams.RemoveChannelMembers(this.betaClient, teamid, channelid, cmToDelete, true, this.token);
             }
 
             if (lastOwnerToAdd != null)
             {
                 cmToAdd.Clear();
-                cmToAdd.Add(new Beta.AadUserConversationMember { UserId = lastOwnerToAdd, Roles = new[] { "owner" }, AdditionalData = new Dictionary<string, object>() { { "user@odata.bind", $"https://graph.microsoft.com/v1.0/users/{lastOwnerToAdd}" } } });
+                cmToAdd.Add(GraphHelperTeams.CreateAadUserConversationMember(lastOwnerToAdd, "owner"));
                 await GraphHelperTeams.AddChannelMembers(this.betaClient, teamid, channelid, cmToAdd, true, this.token);
             }
 

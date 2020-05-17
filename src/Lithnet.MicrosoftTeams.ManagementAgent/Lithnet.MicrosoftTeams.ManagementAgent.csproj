@@ -81,11 +81,17 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConfigParameterNames.cs" />
+    <Compile Include="Exceptions\UnsupportedAttributeDeleteException.cs" />
+    <Compile Include="Exceptions\UnsupportedBooleanAttributeDeleteException.cs" />
+    <Compile Include="Exceptions\TeamsManagementAgentException.cs" />
+    <Compile Include="Exceptions\UnsupportedObjectModificationException.cs" />
     <Compile Include="Graph\GraphBatchResult.cs" />
     <Compile Include="Graph\GraphHelper.cs" />
     <Compile Include="Graph\GraphHelperGroups.cs" />
     <Compile Include="Graph\GraphHelperTeams.cs" />
     <Compile Include="Graph\GraphHelperUsers.cs" />
+    <Compile Include="Exceptions\InitialFlowAttributeModificationException.cs" />
+    <Compile Include="Exceptions\UnsupportedAttributeModificationException.cs" />
     <Compile Include="Providers\CapabilitiesProvider.cs" />
     <Compile Include="Providers\Group\ChannelExportProvider.cs" />
     <Compile Include="Providers\Group\TeamExportProvider.cs" />

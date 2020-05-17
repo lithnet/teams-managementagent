@@ -30,5 +30,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         internal static readonly string UsersToIgnore = "User IDs to ignore";
 
         internal static readonly string UsersToIgnoreDescription = "An optional comma-separated list of user IDs to ignore from a group's membership. If these user IDs are found as group owners or members, they will not be reported back to the sync engine. Note these values must be azure object IDs, not user principal names";
+
+        internal static readonly string SetSpoReadOnly = "Set Sharepoint Online content to read only when archiving";
     }
 }

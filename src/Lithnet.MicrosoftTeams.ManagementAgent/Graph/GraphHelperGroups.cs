@@ -50,12 +50,62 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             foreach (string member in members)
             {
-                requests.Add(member, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member, client.Groups[groupid].Members.References.Request().RequestUrl, CreateStringContentForMemberId(member)));
+                requests.Add(member, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member, client.Groups[groupid].Members.References.Request().RequestUrl, GraphHelperGroups.GetUserODataId(member)));
             }
 
             logger.Trace($"Adding {requests.Count} members in batch request for group {groupid}");
 
             await GraphHelper.SubmitAsBatches(client, requests, false, ignoreMemberExists, token);
+        }
+
+        public static async Task UpdateGroupOwners(GraphServiceClient client, string groupid, IList<string> adds, IList<string> deletes, bool ignoreMemberExists, bool ignoreNotFound, CancellationToken token)
+        {
+            // If we try to delete the last owner on a channel, the operation will fail. If we are swapping out the full set of owners (eg an add/delete of 100 owners), this will never succeed if we do a 'delete' operation first.
+            // If we do an 'add' operation first, and the channel already has the maximum number of owners, the call will fail.
+            // So the order of events should be to
+            //    1) Process all membership removals except for one owner (100-99 = 1 owner)
+            //    2) Process all membership adds except for one owner (1 + 99 = 100 owners)
+            //    3) Remove the final owner (100 - 1 = 99 owners)
+            //    4) Add the final owner (99 + 1 = 100 owners)
+
+            string lastOwnerToRemove = null;
+
+            if (deletes.Count > 0)
+            {
+                if (adds.Count > 0)
+                {
+                    // We only need to deal with the above condition if we are processing deletes and adds at the same time
+
+                    lastOwnerToRemove = deletes[0];
+                    deletes.RemoveAt(0);
+                }
+
+                await GraphHelperGroups.RemoveGroupOwners(client, groupid, deletes, true, token);
+            }
+
+            string lastOwnerToAdd = null;
+            if (adds.Count > 0)
+            {
+                if (deletes.Count > 0)
+                {
+                    // We only need to deal with the above condition if we are processing deletes and adds at the same time
+
+                    lastOwnerToAdd = adds[0];
+                    adds.RemoveAt(0);
+                }
+
+                await GraphHelperGroups.AddGroupOwners(client, groupid, adds, true, token);
+            }
+
+            if (lastOwnerToRemove != null)
+            {
+                await GraphHelperGroups.RemoveGroupOwners(client, groupid, new List<string>() { lastOwnerToRemove }, ignoreNotFound, token);
+            }
+
+            if (lastOwnerToAdd != null)
+            {
+                await GraphHelperGroups.AddGroupOwners(client, groupid, new List<string>() { lastOwnerToAdd }, ignoreMemberExists, token);
+            }
         }
 
         public static async Task AddGroupOwners(GraphServiceClient client, string groupid, IList<string> members, bool ignoreMemberExists, CancellationToken token)
@@ -69,7 +119,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             foreach (string member in members)
             {
-                requests.Add(member, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member, client.Groups[groupid].Owners.References.Request().RequestUrl, CreateStringContentForMemberId(member)));
+                requests.Add(member, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member, client.Groups[groupid].Owners.References.Request().RequestUrl, GraphHelperGroups.GetUserODataId(member)));
             }
 
             logger.Trace($"Adding {requests.Count} owners in batch request for group {groupid}");
@@ -156,6 +206,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return collectionPage[0].Id;
         }
 
+        public static async Task<Group> GetGroup(GraphServiceClient client, string id, CancellationToken token)
+        {
+            return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[id].Request().GetAsync(token), token, 1);
+        }
+
         public static async Task UpdateGroup(GraphServiceClient client, string id, Group group, CancellationToken token)
         {
             await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[id].Request().UpdateAsync(group, token), token, 1);
@@ -173,7 +228,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
             return await GetGroups(page, target, token);
         }
-        
+
         private static async Task GetGroups(Beta.IGraphServiceGroupsCollectionRequest request, ITargetBlock<Beta.Group> target, CancellationToken token)
         {
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
@@ -297,9 +352,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             target.AdditionalData.Add($"mergedGroup-{Guid.NewGuid()}", source.AdditionalData);
         }
 
-        private static string CreateStringContentForMemberId(string member)
+        private static string GetUserODataId(string id)
         {
-            return "{\"@odata.id\":\"https://graph.microsoft.com/v1.0/users/" + member + "\"}";
+            return $"{{\"@odata.id\":\"https://graph.microsoft.com/v1.0/users/{id}\"}}";
         }
     }
 }

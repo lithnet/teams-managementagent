@@ -33,8 +33,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             this.context = context;
             this.token = context.Token;
-            this.betaClient = ((GraphConnectionContext) context.ConnectionContext).BetaClient;
-            this.client = ((GraphConnectionContext) context.ConnectionContext).Client;
+            this.betaClient = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
+            this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
             this.userFilter = ((GraphConnectionContext)context.ConnectionContext).UserFilter;
         }
 
@@ -62,7 +62,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     return await this.PutCSEntryChangeUpdate(csentry);
 
                 default:
-                    throw new InvalidOperationException($"Unknown or unsupported modification type: {csentry.ObjectModificationType} on object {csentry.DN}");
+                    throw new UnsupportedObjectModificationException($"Unknown or unsupported modification type: {csentry.ObjectModificationType} on object {csentry.DN}");
             }
         }
 
@@ -70,13 +70,15 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
-                await GraphHelperGroups.DeleteGroup(this.client, csentry.DN, this.token);
+                string teamid = csentry.GetAnchorValueOrDefault<string>("id");
+                await GraphHelperGroups.DeleteGroup(this.client, teamid, this.token);
+                logger.Info($"The team {teamid} was deleted");
             }
             catch (ServiceException ex)
             {
                 if (ex.StatusCode == HttpStatusCode.NotFound)
                 {
-                    logger.Warn($"The request to delete the group {csentry.DN} failed because the group doesn't exist");
+                    logger.Warn($"The request to delete the team {csentry.DN} failed because the group doesn't exist");
                 }
                 else
                 {
@@ -94,6 +96,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             try
             {
                 IList<string> owners = csentry.GetValueAdds<string>("owner") ?? new List<string>();
+
+                if (owners.Count == 0)
+                {
+                    throw new UnsupportedObjectModificationException("At least one owner is required to create a team");
+                }
+
                 teamid = await this.CreateTeam(csentry, this.betaClient, owners.First());
                 await this.PutGroupMembersMailNickname(csentry, teamid);
             }
@@ -152,7 +160,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 }
                 else
                 {
-                    throw new UnexpectedDataException($"The 'visibility' value was not supported {visibility}");
+                    throw new UnsupportedAttributeModificationException($"The value '{visibility}' provided for attribute 'visibility' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(Beta.TeamVisibilityType)))}");
                 }
             }
 
@@ -160,11 +168,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (!string.IsNullOrWhiteSpace(template))
             {
-                team.AdditionalData.Add("template@odata.bind", template); //"https://graph.microsoft.com/beta/teamsTemplates('standard')"
+                team.AdditionalData.Add("template@odata.bind", template);
             }
 
             team.AdditionalData.Add("owners@odata.bind", new string[]
-                {$"https://graph.microsoft.com/v1.0/users('{ownerId}')"});
+                { $"https://graph.microsoft.com/v1.0/users('{ownerId}')"});
 
             team.MemberSettings.AllowCreateUpdateChannels = csentry.HasAttributeChange("memberSettings_allowCreateUpdateChannels") ? csentry.GetValueAdd<bool>("memberSettings_allowCreateUpdateChannels") : default(bool?);
             team.MemberSettings.AllowDeleteChannels = csentry.HasAttributeChange("memberSettings_allowDeleteChannels") ? csentry.GetValueAdd<bool>("memberSettings_allowDeleteChannels") : default(bool?);
@@ -172,7 +180,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             team.MemberSettings.AllowCreateUpdateRemoveTabs = csentry.HasAttributeChange("memberSettings_allowCreateUpdateRemoveTabs") ? csentry.GetValueAdd<bool>("memberSettings_allowCreateUpdateRemoveTabs") : default(bool?);
             team.MemberSettings.AllowCreateUpdateRemoveConnectors = csentry.HasAttributeChange("memberSettings_allowCreateUpdateRemoveConnectors") ? csentry.GetValueAdd<bool>("memberSettings_allowCreateUpdateRemoveConnectors") : default(bool?);
             team.GuestSettings.AllowCreateUpdateChannels = csentry.HasAttributeChange("guestSettings_allowCreateUpdateChannels") ? csentry.GetValueAdd<bool>("guestSettings_allowCreateUpdateChannels") : default(bool?);
-            team.GuestSettings.AllowCreateUpdateChannels = csentry.HasAttributeChange("guestSettings_allowDeleteChannels") ? csentry.GetValueAdd<bool>("guestSettings_allowDeleteChannels") : default(bool?);
+            team.GuestSettings.AllowDeleteChannels = csentry.HasAttributeChange("guestSettings_allowDeleteChannels") ? csentry.GetValueAdd<bool>("guestSettings_allowDeleteChannels") : default(bool?);
             team.MessagingSettings.AllowUserEditMessages = csentry.HasAttributeChange("messagingSettings_allowUserEditMessages") ? csentry.GetValueAdd<bool>("messagingSettings_allowUserEditMessages") : default(bool?);
             team.MessagingSettings.AllowUserDeleteMessages = csentry.HasAttributeChange("messagingSettings_allowUserDeleteMessages") ? csentry.GetValueAdd<bool>("messagingSettings_allowUserDeleteMessages") : default(bool?);
             team.MessagingSettings.AllowOwnerDeleteMessages = csentry.HasAttributeChange("messagingSettings_allowOwnerDeleteMessages") ? csentry.GetValueAdd<bool>("messagingSettings_allowOwnerDeleteMessages") : default(bool?);
@@ -187,7 +195,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 if (!Enum.TryParse(gcr, false, out Beta.GiphyRatingType grt))
                 {
-                    throw new UnexpectedDataException($"The value '{gcr}' was not a supported value for funSettings_giphyContentRating. Supported values are (case sensitive) 'Strict' or 'Moderate'");
+                    throw new UnsupportedAttributeModificationException($"The value '{gcr}' provided for attribute 'funSettings_giphyContentRating' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(Beta.GiphyRatingType)))}");
                 }
 
                 team.FunSettings.GiphyContentRating = grt;
@@ -215,7 +223,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 try
                 {
                     await GraphHelperGroups.UpdateGroup(this.client, teamID, group, this.token);
-                    logger.Info($"{csentry.DN}: Updated group {group.Id}");
+                    logger.Info($"{csentry.DN}: Updated group {teamID}");
                 }
                 catch (ServiceException ex)
                 {
@@ -239,63 +247,92 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             IList<string> members = csentry.GetValueAdds<string>("member") ?? new List<string>();
             IList<string> owners = csentry.GetValueAdds<string>("owner") ?? new List<string>();
+
             if (owners.Count > 0)
             {
+                // Remove the first owner, as we already added them during team creation
+                string initialOwner = owners[0];
                 owners.RemoveAt(0);
-            }
 
-            IList<string> deferredMembers = new List<string>();
-            IList<string> deferredOwners = new List<string>();
+                // Teams API unhelpfully adds the initial owner as a member as well, so we need to undo that.
+                await GraphHelperGroups.RemoveGroupMembers(this.client, teamID, new List<string> { initialOwner }, false, this.token);
+            }
 
             if (owners.Count > 100)
             {
-                throw new UnexpectedDataException($"The group creation request {csentry.DN} contained more than 100 owners");
+                throw new UnsupportedAttributeModificationException($"The group creation request {csentry.DN} contained more than 100 owners");
             }
 
-            foreach (string owner in owners)
-            {
-                deferredOwners.Add(owner);
-            }
-
-            foreach (string member in members)
-            {
-                deferredMembers.Add(member);
-            }
-
-            await this.ProcessDeferredMembership(deferredMembers, teamID, deferredOwners, csentry.DN);
+            await this.ApplyMembership(teamID, teamID, members, owners);
         }
 
-        private async Task ProcessDeferredMembership(IList<string> deferredMembers, string groupid, IList<string> deferredOwners, string csentryDN)
+        private async Task ApplyMembership(string csentryDN, string groupid, IList<string> members, IList<string> owners)
         {
-            bool success = false;
-
-            while (!success)
+            if (members.Count > 0)
             {
-                if (deferredMembers.Count > 0)
-                {
-                    logger.Trace($"{csentryDN}: Adding {deferredMembers.Count} deferred members");
-                    await GraphHelperGroups.AddGroupMembers(this.client, groupid, deferredMembers, true, this.token);
-                }
-
-                if (deferredOwners.Count > 0)
-                {
-                    logger.Trace($"{csentryDN}: Adding {deferredOwners.Count} deferred owners");
-                    await GraphHelperGroups.AddGroupOwners(this.client, groupid, deferredOwners, true, this.token);
-                }
-
-                success = true;
+                logger.Trace($"{csentryDN}: Adding {members.Count} members");
+                await GraphHelperGroups.AddGroupMembers(this.client, groupid, members, true, this.token);
             }
+
+            if (owners.Count > 0)
+            {
+                logger.Trace($"{csentryDN}: Adding {owners.Count} owners");
+                await GraphHelperGroups.AddGroupOwners(this.client, groupid, owners, true, this.token);
+            }
+
         }
 
         private async Task<CSEntryChangeResult> PutCSEntryChangeUpdate(CSEntryChange csentry)
         {
+            string teamid = csentry.GetAnchorValueOrDefault<string>("id");
+
+            bool archive = false;
+            bool unarchive = false;
+
+            if (csentry.HasAttributeChange("isArchived"))
+            {
+                if (csentry.AttributeChanges["isArchived"].ModificationType == AttributeModificationType.Delete)
+                {
+                    throw new UnsupportedBooleanAttributeDeleteException("isArchived");
+                }
+
+                var at = await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token);
+
+                bool futureState = csentry.GetValueAdd<bool>("isArchived");
+
+                if (futureState != (at.IsArchived ?? false))
+                {
+                    if (futureState)
+                    {
+                        archive = true;
+                    }
+                    else
+                    {
+                        unarchive = true;
+                    }
+                }
+            }
+
+            if (unarchive)
+            {
+                await this.PutCSEntryChangeUpdateUnarchive(csentry);
+            }
+
             await this.PutCSEntryChangeUpdateTeam(csentry);
+
+            if (archive)
+            {
+                await this.PutCSEntryChangeUpdateArchive(csentry);
+            }
+
             await this.PutCSEntryChangeUpdateGroup(csentry);
             return CSEntryChangeResult.Create(csentry.Identifier, null, MAExportError.Success);
         }
 
         private async Task PutCSEntryChangeUpdateTeam(CSEntryChange csentry)
         {
+            string teamid = csentry.GetAnchorValueOrDefault<string>("id");
+
             Team team = new Team();
             team.MemberSettings = new TeamMemberSettings();
             team.MemberSettings.ODataType = null;
@@ -315,24 +352,28 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     continue;
                 }
 
-                if (change.ModificationType == AttributeModificationType.Delete)
-                {
-                    throw new UnknownOrUnsupportedModificationTypeException($"The property {change.Name} cannot be deleted. If it is a boolean value, set it to false");
-                }
-
                 if (change.Name == "visibility")
                 {
-                    throw new UnexpectedDataException("The visibility parameter can only be supplied during an 'add' operation");
+                    throw new InitialFlowAttributeModificationException("visibility");
                 }
                 else if (change.Name == "template")
                 {
-                    throw new UnexpectedDataException("The template parameter can only be supplied during an 'add' operation");
+                    throw new InitialFlowAttributeModificationException("template");
                 }
-                else if (change.Name == "isArchived")
+
+                if (change.ModificationType == AttributeModificationType.Delete)
                 {
-                    team.IsArchived = change.GetValueAdd<bool>();
+                    if (change.DataType == AttributeType.Boolean)
+                    {
+                        throw new UnsupportedBooleanAttributeDeleteException(change.Name);
+                    }
+                    else
+                    {
+                        throw new UnsupportedAttributeModificationException($"Deleting the value of attribute {change.Name} is not supported");
+                    }
                 }
-                else if (change.Name == "memberSettings_allowCreateUpdateChannels")
+
+                if (change.Name == "memberSettings_allowCreateUpdateChannels")
                 {
                     team.MemberSettings.AllowCreateUpdateChannels = change.GetValueAdd<bool>();
                 }
@@ -389,7 +430,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     string value = change.GetValueAdd<string>();
                     if (!Enum.TryParse<GiphyRatingType>(value, false, out GiphyRatingType result))
                     {
-                        throw new UnexpectedDataException($"The value '{value}' was not a supported value for funSettings_giphyContentRating. Supported values are (case sensitive) 'Strict' or 'Moderate'");
+                        throw new UnsupportedAttributeModificationException($"The value '{result}' provided for attribute 'funSettings_giphyContentRating' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(Beta.GiphyRatingType)))}");
                     }
 
                     team.FunSettings.GiphyContentRating = result;
@@ -414,22 +455,39 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 logger.Trace($"{csentry.DN}:Updating team data: {JsonConvert.SerializeObject(team)}");
 
-                await GraphHelperTeams.UpdateTeam(this.client, csentry.DN, team, this.token);
+                await GraphHelperTeams.UpdateTeam(this.client, teamid, team, this.token);
 
                 logger.Info($"{csentry.DN}: Updated team");
             }
+        }
+
+        private async Task PutCSEntryChangeUpdateArchive(CSEntryChange csentry)
+        {
+            string teamid = csentry.GetAnchorValueOrDefault<string>("id");
+            logger.Trace($"Archiving team: {teamid}");
+            await GraphHelperTeams.ArchiveTeam(this.betaClient, teamid, this.context.ConfigParameters.GetBoolValueOrDefault(ConfigParameterNames.SetSpoReadOnly), this.token);
+            logger.Info($"Team successfully archived: {teamid}");
+        }
+
+        private async Task PutCSEntryChangeUpdateUnarchive(CSEntryChange csentry)
+        {
+            string teamid = csentry.GetAnchorValueOrDefault<string>("id");
+            logger.Trace($"Unarchiving team: {teamid}");
+            await GraphHelperTeams.UnarchiveTeam(this.betaClient, teamid, this.token);
+            logger.Info($"Team successfully unarchived: {teamid}");
         }
 
         private async Task PutCSEntryChangeUpdateGroup(CSEntryChange csentry)
         {
             Group group = new Group();
             bool changed = false;
+            string teamid = csentry.GetAnchorValueOrDefault<string>("id");
 
             foreach (AttributeChange change in csentry.AttributeChanges)
             {
                 if (SchemaProvider.GroupMemberProperties.Contains(change.Name))
                 {
-                    await this.PutAttributeChangeMembers(csentry.DN, change);
+                    await this.PutAttributeChangeMembers(teamid, change);
                     continue;
                 }
 
@@ -438,22 +496,33 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     continue;
                 }
 
-                if (change.ModificationType == AttributeModificationType.Delete)
-                {
-                    group.AssignNullToProperty(change.Name);
-                    continue;
-                }
-
                 if (change.Name == "displayName")
                 {
+                    if (change.ModificationType == AttributeModificationType.Delete)
+                    {
+                        throw new UnsupportedAttributeDeleteException(change.Name);
+                    }
+
                     group.DisplayName = change.GetValueAdd<string>();
                 }
                 else if (change.Name == "description")
                 {
-                    group.Description = change.GetValueAdd<string>();
+                    if (change.ModificationType == AttributeModificationType.Delete)
+                    {
+                        group.AssignNullToProperty(change.Name);
+                    }
+                    else
+                    {
+                        group.Description = change.GetValueAdd<string>();
+                    }
                 }
                 else if (change.Name == "mailNickname")
                 {
+                    if (change.ModificationType == AttributeModificationType.Delete)
+                    {
+                        throw new UnsupportedAttributeDeleteException(change.Name);
+                    }
+
                     group.MailNickname = change.GetValueAdd<string>();
                 }
                 else
@@ -467,8 +536,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             if (changed)
             {
                 logger.Trace($"{csentry.DN}:Updating group data: {JsonConvert.SerializeObject(group)}");
-                await GraphHelperGroups.UpdateGroup(this.client, csentry.DN, group, this.token);
-                logger.Info($"{csentry.DN}: Updated group {csentry.DN}");
+                await GraphHelperGroups.UpdateGroup(this.client, teamid, group, this.token);
+                logger.Info($"{csentry.DN}: Updated group {teamid}");
             }
         }
 
@@ -499,8 +568,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
             else
             {
-                await GraphHelperGroups.AddGroupOwners(this.client, groupid, valueAdds, true, this.token);
-                await GraphHelperGroups.RemoveGroupOwners(this.client, groupid, valueDeletes, true, this.token);
+                await GraphHelperGroups.UpdateGroupOwners(this.client, groupid, valueAdds, valueDeletes, true, true, this.token);
                 logger.Info($"Owner modification for group {groupid} completed. Owners added: {valueAdds.Count}, owners removed: {valueDeletes.Count}");
             }
         }

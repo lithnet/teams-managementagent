@@ -26,15 +26,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        internal static async Task SubmitAsBatches(GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
-        {
-            foreach (var batch in GetBatchPartitions(requests))
-            {
-                await SubmitBatchContent(client, batch, ignoreNotFound, ignoreRefAlreadyExists, token);
-            }
-        }
-
-        internal static async Task SubmitAsBatches(Beta.GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
+        internal static async Task SubmitAsBatches(IBaseClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token)
         {
             foreach (var batch in GetBatchPartitions(requests))
             {
@@ -63,34 +55,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private static async Task SubmitBatchContent(GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
-        {
-            BatchRequestContent content = GraphHelper.BuildBatchRequest(requests);
-
-            BatchResponseContent response = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Batch.Request().PostAsync(content, token), token, content.BatchRequestSteps.Count + 1);
-
-            List<GraphBatchResult> results = await GetBatchResults(await response.GetResponsesAsync(), ignoreNotFound, ignoreRefAlreadyExists, attemptCount <= MaxRetry);
-
-            GraphHelper.ThrowOnExceptions(results);
-
-            int retryInterval = 8 * attemptCount;
-            Dictionary<string, Func<BatchRequestStep>> stepsToRetry = new Dictionary<string, Func<BatchRequestStep>>();
-
-            foreach (var result in results.Where(t => t.IsRetryable))
-            {
-                retryInterval = Math.Max(result.RetryInterval, retryInterval);
-                stepsToRetry.Add(result.ID, requests[result.ID]);
-            }
-
-            if (stepsToRetry.Count > 0)
-            {
-                logger.Info($"Sleeping for {retryInterval} before retrying after attempt {attemptCount}");
-                await Task.Delay(TimeSpan.FromSeconds(retryInterval), token);
-                await GraphHelper.SubmitBatchContent(client, stepsToRetry, ignoreNotFound, ignoreRefAlreadyExists, token, ++attemptCount);
-            }
-        }
-
-        private static async Task SubmitBatchContent(Beta.GraphServiceClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
+        private static async Task SubmitBatchContent(IBaseClient client, Dictionary<string, Func<BatchRequestStep>> requests, bool ignoreNotFound, bool ignoreRefAlreadyExists, CancellationToken token, int attemptCount = 1)
         {
             BatchRequestContent content = GraphHelper.BuildBatchRequest(requests);
 
@@ -126,6 +91,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 content.AddBatchRequestStep(item.Value.Invoke());
             }
 
+            logger.Trace(JsonConvert.SerializeObject(content));
             return content;
         }
 
@@ -245,9 +211,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return new BatchRequestStep(id, request);
         }
 
-        internal static BatchRequestStep GenerateBatchRequestStepJsonContent(HttpMethod method, string id, string requesrUrl, string jsonbody)
+        internal static BatchRequestStep GenerateBatchRequestStepJsonContent(HttpMethod method, string id, string requestUrl, string jsonbody)
         {
-            HttpRequestMessage request = new HttpRequestMessage(method, requesrUrl);
+            HttpRequestMessage request = new HttpRequestMessage(method, requestUrl);
             request.Content = new StringContent(jsonbody, Encoding.UTF8, "application/json");
             return new BatchRequestStep(id, request);
         }

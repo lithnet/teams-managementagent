@@ -1,24 +1,20 @@
 ﻿extern alias BetaLib;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Lithnet.MicrosoftTeams.ManagementAgent;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.MetadirectoryServices;
-using Microsoft.MetadirectoryServices.DetachedObjectModel;
 using System.Threading;
 using Beta = BetaLib.Microsoft.Graph;
-using Microsoft.Graph;
-using Newtonsoft.Json;
 using Lithnet.Ecma2Framework;
 using Lithnet.MetadirectoryServices;
+using Microsoft.Graph;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 {
     [TestClass()]
-    public class ChannelExportProviderTests
+    public class ChannelTests
     {
         static IExportContext context;
         static List<string> teamsToDelete;
@@ -65,7 +61,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
         [TestMethod()]
         public async Task CreatePublicChannelTest()
         {
-            string teamid = await CreateTeamWithMembers();
+            string teamid = await CreateTeamWithMembers(10, 10);
 
             CSEntryChange channel = CSEntryChange.Create();
             channel.ObjectType = "publicChannel";
@@ -93,11 +89,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
         [TestMethod()]
         public async Task CreatePrivateChannelTest()
         {
-            string teamid = await CreateTeamWithMembers();
+            string teamid = await CreateTeamWithMembers(10, 10);
 
-            var teamMembers = await GraphHelperGroups.GetGroupMembers(UnitTestControl.Client, teamid, CancellationToken.None);
+            List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(UnitTestControl.Client, teamid, CancellationToken.None);
 
-            string ownerid = teamMembers.First().Id;
+            string ownerid = owners.First().Id;
+            owners.RemoveAt(0);
+            List<string> ownerIds = owners.Select(t => t.Id).ToList();
 
             CSEntryChange channel = CSEntryChange.Create();
             channel.ObjectType = "privateChannel";
@@ -107,6 +105,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
             channel.CreateAttributeAdd("description", "my description");
             channel.CreateAttributeAdd("isFavoriteByDefault", true);
             channel.CreateAttributeAdd("owner", ownerid);
+            channel.CreateAttributeAdd("member", ownerIds.ToList<object>());
 
             CSEntryChangeResult channelResult = await channelExportProvider.PutCSEntryChangeAsync(channel);
             string channelid = channelResult.GetAnchorValueOrDefault<string>("id");
@@ -120,25 +119,24 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             var members = await GraphHelperTeams.GetChannelMembers(UnitTestControl.BetaClient, teamid, channelid, CancellationToken.None);
 
-            Assert.AreEqual(1, members.Count);
+            Assert.IsTrue(members.Any(t => t.Id == ownerid && (t.Roles?.Contains("owner") ?? false)));
 
-            var member = members.First();
-
-            Assert.AreEqual(ownerid, member.UserId);
+            CollectionAssert.AreEquivalent(ownerIds, members.Where(t => t.Roles == null).Select(t => t.Id).ToList());
+            
             // 2020-05-15 This currently doesn't come in with a GET request
             // https://github.com/microsoftgraph/microsoft-graph-docs/issues/6792
 
             //Assert.AreEqual(true, newChannel.IsFavoriteByDefault);
         }
 
-        private static async Task<string> CreateTeamWithMembers()
+        private static async Task<string> CreateTeamWithMembers(int memberCount, int ownerCount)
         {
             CSEntryChange team = CSEntryChange.Create();
             team.ObjectType = "team";
             team.ObjectModificationType = ObjectModificationType.Add;
             team.CreateAttributeAdd("displayName", "mytestteam");
-            team.CreateAttributeAdd("member", UnitTestControl.Users.Take(20).Select(t => t.Id).ToList<object>());
-            team.CreateAttributeAdd("owner", UnitTestControl.Users.GetRange(20, 20).Select(t => t.Id).ToList<object>());
+            team.CreateAttributeAdd("member", UnitTestControl.Users.Take(memberCount).Select(t => t.Id).ToList<object>());
+            team.CreateAttributeAdd("owner", UnitTestControl.Users.GetRange(memberCount, ownerCount).Select(t => t.Id).ToList<object>());
 
             CSEntryChangeResult teamResult = await teamExportProvider.PutCSEntryChangeAsync(team);
             AddTeamToCleanupTask(teamResult);

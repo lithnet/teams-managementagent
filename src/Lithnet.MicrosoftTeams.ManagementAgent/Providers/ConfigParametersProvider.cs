@@ -29,6 +29,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     newDefinitions.Add(ConfigParameterDefinition.CreateDividerParameter());
                     newDefinitions.Add(ConfigParameterDefinition.CreateLabelParameter(ConfigParameterNames.UsersToIgnoreDescription));
                     newDefinitions.Add(ConfigParameterDefinition.CreateTextParameter(ConfigParameterNames.UsersToIgnore));
+                    newDefinitions.Add(ConfigParameterDefinition.CreateDividerParameter());
+                    newDefinitions.Add(ConfigParameterDefinition.CreateCheckBoxParameter(ConfigParameterNames.SetSpoReadOnly, false));
                     break;
 
                 case ConfigParameterPage.Partition:
