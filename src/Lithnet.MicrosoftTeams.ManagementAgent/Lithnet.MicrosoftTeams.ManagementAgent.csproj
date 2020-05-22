@@ -84,6 +84,7 @@
     <Compile Include="Exceptions\UnsupportedAttributeDeleteException.cs" />
     <Compile Include="Exceptions\UnsupportedBooleanAttributeDeleteException.cs" />
     <Compile Include="Exceptions\TeamsManagementAgentException.cs" />
+    <Compile Include="Exceptions\InvalidProvisioningStateException.cs" />
     <Compile Include="Exceptions\UnsupportedObjectModificationException.cs" />
     <Compile Include="Graph\GraphBatchResult.cs" />
     <Compile Include="Graph\GraphHelper.cs" />

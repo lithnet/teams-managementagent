@@ -18,9 +18,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     public class ChannelExportProvider : IObjectExportProviderAsync
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
-
-        private HashSet<string> usersToIgnore = new HashSet<string>();
-
+        
         private IExportContext context;
 
         private GraphServiceClient client;
@@ -29,36 +27,20 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private CancellationToken token;
 
+        private UserFilter userFilter;
+
         public void Initialize(IExportContext context)
         {
             this.context = context;
             this.token = context.Token;
             this.betaClient = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
             this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
-            this.BuildUsersToIgnore();
+            this.userFilter = ((GraphConnectionContext)context.ConnectionContext).UserFilter;
         }
 
         public bool CanExport(CSEntryChange csentry)
         {
             return csentry.ObjectType == "publicChannel" || csentry.ObjectType == "privateChannel";
-        }
-
-        private void BuildUsersToIgnore()
-        {
-            this.usersToIgnore.Clear();
-
-            if (this.context.ConfigParameters.Contains(ConfigParameterNames.UsersToIgnore))
-            {
-                string raw = this.context.ConfigParameters[ConfigParameterNames.UsersToIgnore].Value;
-
-                if (!string.IsNullOrWhiteSpace(raw))
-                {
-                    foreach (string user in raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        this.usersToIgnore.Add(user.ToLower().Trim());
-                    }
-                }
-            }
         }
 
         public async Task<CSEntryChangeResult> PutCSEntryChangeAsync(CSEntryChange csentry)
@@ -81,7 +63,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     return await this.PutCSEntryChangeUpdate(csentry);
 
                 default:
-                    throw new InvalidOperationException($"Unknown or unsupported modification type: {csentry.ObjectModificationType} on object {csentry.DN}");
+                    throw new UnsupportedObjectModificationException($"Unknown or unsupported modification type: {csentry.ObjectModificationType} on object {csentry.DN}");
             }
         }
 
@@ -139,7 +121,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 if (!csentry.HasAttributeChangeAdd("owner"))
                 {
-                    throw new UnexpectedDataException("At least one owner must be specified when creating a channel");
+                    throw new InvalidProvisioningStateException("At least one owner must be specified when creating a channel");
                 }
 
                 string ownerID = csentry.GetValueAdds<string>("owner").First();
@@ -184,12 +166,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 if (change.DataType == AttributeType.Boolean && change.ModificationType == AttributeModificationType.Delete)
                 {
-                    throw new UnknownOrUnsupportedModificationTypeException($"The property {change.Name} cannot be deleted. If it is a boolean value, set it to false");
+                    throw new UnsupportedBooleanAttributeDeleteException(change.Name);
                 }
 
                 if (change.Name == "team")
                 {
-                    throw new UnexpectedDataException("The team parameter can only be supplied during an 'add' operation");
+                    throw new InitialFlowAttributeModificationException(change.Name);
                 }
                 else if (change.Name == "isFavoriteByDefault")
                 {
@@ -199,7 +181,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 {
                     if (change.ModificationType == AttributeModificationType.Delete)
                     {
-                        throw new UnknownOrUnsupportedModificationTypeException($"The property {change.Name} cannot be deleted");
+                        throw new UnsupportedAttributeDeleteException(change.Name);
                     }
 
                     channel.DisplayName = change.GetValueAdd<string>();
@@ -262,12 +244,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 if (csentry.HasAttributeChangeDelete("member"))
                 {
-                    memberDeletes = existingMembership.Where(t => t.Roles.All(u => !string.Equals(u, "owner", StringComparison.OrdinalIgnoreCase))).Select(t => t.Id).ToList();
+                    memberDeletes = existingMembership.Where(t => !this.userFilter.ShouldExclude(t.Id, this.token) && (t.Roles == null || !t.Roles.Any(u => string.Equals(u, "owner", StringComparison.OrdinalIgnoreCase)))).Select(t => t.Id).ToList();
                 }
 
                 if (csentry.HasAttributeChangeDelete("owner"))
                 {
-                    ownerDeletes = existingMembership.Where(t => t.Roles.Any(u => string.Equals(u, "owner", StringComparison.OrdinalIgnoreCase))).Select(t => t.Id).ToList();
+                    ownerDeletes = existingMembership.Where(t => !this.userFilter.ShouldExclude(t.Id, this.token) && t.Roles != null && t.Roles.Any(u => string.Equals(u, "owner", StringComparison.OrdinalIgnoreCase))).Select(t => t.Id).ToList();
                 }
             }
 

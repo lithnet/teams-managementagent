@@ -330,5 +330,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             return mmsType;
         }
+
     }
 }

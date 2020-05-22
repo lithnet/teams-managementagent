@@ -99,7 +99,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 if (owners.Count == 0)
                 {
-                    throw new UnsupportedObjectModificationException("At least one owner is required to create a team");
+                    throw new InvalidProvisioningStateException("At least one owner is required to create a team");
                 }
 
                 teamid = await this.CreateTeam(csentry, this.betaClient, owners.First());
