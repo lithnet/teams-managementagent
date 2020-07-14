@@ -92,7 +92,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             foreach (var member in members)
             {
                 //await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels[channelid].Members.Request().AddAsync(member, token), token, 1);
-
+               // logger.Trace(JsonConvert.SerializeObject(member));
                 requests.Add(member.UserId, () => GraphHelper.GenerateBatchRequestStepJsonContent(HttpMethod.Post, member.UserId, client.Teams[teamid].Channels[channelid].Members.Request().RequestUrl, JsonConvert.SerializeObject(member)));
             }
 

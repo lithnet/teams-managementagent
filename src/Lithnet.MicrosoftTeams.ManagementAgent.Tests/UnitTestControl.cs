@@ -58,10 +58,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             LogLevel level = LogLevel.Trace;
 
-            OutputDebugStringTarget odsTarget = new OutputDebugStringTarget();
-            logConfiguration.AddTarget("ods", odsTarget);
-            LoggingRule odsRule = new LoggingRule("*", level, odsTarget);
-            logConfiguration.LoggingRules.Add(odsRule);
+            TraceTarget ttarget = new TraceTarget();
+            logConfiguration.AddTarget("tt", ttarget);
+            LoggingRule ttRule = new LoggingRule("*", level, ttarget);
+            logConfiguration.LoggingRules.Add(ttRule);
 
             FileTarget fileTarget = new FileTarget();
             logConfiguration.AddTarget("file", fileTarget);

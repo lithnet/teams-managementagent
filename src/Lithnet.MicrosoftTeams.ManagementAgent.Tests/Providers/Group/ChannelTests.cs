@@ -93,6 +93,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             List<DirectoryObject> owners = await GraphHelperGroups.GetGroupOwners(UnitTestControl.Client, teamid, CancellationToken.None);
 
+            await Task.Delay(TimeSpan.FromDays(1));
             string ownerid = owners.First().Id;
             owners.RemoveAt(0);
             List<string> ownerIds = owners.Select(t => t.Id).ToList();
