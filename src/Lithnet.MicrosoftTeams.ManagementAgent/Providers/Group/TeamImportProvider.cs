@@ -463,7 +463,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         private async Task TeamToCSEntryChange(CSEntryChange c, SchemaType schemaType)
         {
             Team team = await GraphHelperTeams.GetTeam(this.client, c.DN, this.token);
-
+            
             foreach (SchemaAttribute type in schemaType.Attributes)
             {
                 switch (type.Name)
@@ -538,6 +538,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                     case "funSettings_allowCustomMemes":
                         c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, team.FunSettings.AllowCustomMemes ?? false));
+                        break;
+
+                    case "webUrl":
+                        if (!string.IsNullOrWhiteSpace(team.WebUrl))
+                        {
+                            c.AttributeChanges.Add(AttributeChange.CreateAttributeAdd(type.Name, team.WebUrl));
+                        }
+
                         break;
                 }
             }

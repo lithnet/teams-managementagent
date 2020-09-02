@@ -54,7 +54,8 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             "funSettings_giphyContentRating",
             "funSettings_allowStickersAndMemes",
             "funSettings_allowCustomMemes",
-            "visibility"
+            "visibility",
+            "webUrl"
         };
 
         internal static HashSet<string> GroupFromTeamProperties = new HashSet<string>() { "id", "mailNickname", "displayName", "description" };
@@ -187,6 +188,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             // Teams
 
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("webUrl", AttributeType.String, AttributeOperation.ImportOnly);
+            mmsType.Attributes.Add(mmsAttribute);
+
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("isArchived", AttributeType.Boolean, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
 
@@ -273,6 +277,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             mmsType.Attributes.Add(mmsAttribute);
 
             // Teams
+
+            mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("webUrl", AttributeType.String, AttributeOperation.ImportOnly);
+            mmsType.Attributes.Add(mmsAttribute);
 
             mmsAttribute = SchemaAttribute.CreateSingleValuedAttribute("isArchived", AttributeType.Boolean, AttributeOperation.ImportExport);
             mmsType.Attributes.Add(mmsAttribute);
