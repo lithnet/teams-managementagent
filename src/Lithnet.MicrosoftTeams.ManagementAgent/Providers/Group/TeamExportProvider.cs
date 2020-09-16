@@ -29,6 +29,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private UserFilter userFilter;
 
+        public static Beta.Team round1;
+
+        public static Beta.Team round2;
+
+
         public void Initialize(IExportContext context)
         {
             this.context = context;
@@ -281,7 +286,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
 
         }
-
+        
         private async Task<CSEntryChangeResult> PutCSEntryChangeUpdate(CSEntryChange csentry)
         {
             string teamid = csentry.GetAnchorValueOrDefault<string>("id");
@@ -291,27 +296,66 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
             if (csentry.HasAttributeChange("isArchived"))
             {
+                logger.Trace("Archive state is changing");
+
                 if (csentry.AttributeChanges["isArchived"].ModificationType == AttributeModificationType.Delete)
                 {
                     throw new UnsupportedBooleanAttributeDeleteException("isArchived");
                 }
 
-                var at = await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token);
+                // This nonsense is needed because the isArchived bool property is not deserialized properly on the first trip. The raw json says its true, but the backing property says false
+                // but for some reason serializing it again shows the correct value.
+                //Beta.Team at = JsonConvert.DeserializeObject<Beta.Team>(JsonConvert.SerializeObject(await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token)));
+
+                round1 = await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token);
+                logger.Trace($"Round 1: {round1.IsArchived}");
+
+                round2 = JsonConvert.DeserializeObject<Beta.Team>(JsonConvert.SerializeObject(round1));
+                logger.Trace($"Round 2: {round2.IsArchived}");
+
+                 
+                bool currentState = false;
+
+                if (round2.IsArchived == null)
+                {
+                    logger.Trace("Current archive state value was null");
+                }
+                else
+                {
+                    currentState = round2.IsArchived.Value;
+                }
+
+                logger.Trace($"Teams current archive state is {currentState}");
 
                 bool futureState = csentry.GetValueAdd<bool>("isArchived");
 
-                if (futureState != (at.IsArchived ?? false))
+                logger.Trace($"Requested archive state is {futureState}");
+
+                if (futureState != currentState)
                 {
                     if (futureState)
                     {
                         archive = true;
+                        logger.Trace("Flagging team for archiving");
                     }
                     else
                     {
                         unarchive = true;
+                        logger.Trace("Flagging team for unarchiving");
                     }
                 }
+                else
+                {
+                    logger.Trace("Current archive state matches target archive state");
+                }
             }
+            else
+            {
+                logger.Trace("Archive state has not changed");
+            }
+
+            throw new BreakHereException();
+
 
             if (unarchive)
             {
@@ -572,5 +616,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 logger.Info($"Owner modification for group {groupid} completed. Owners added: {valueAdds.Count}, owners removed: {valueDeletes.Count}");
             }
         }
+    }
+
+    public class BreakHereException : Exception
+    {
+
     }
 }

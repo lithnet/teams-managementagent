@@ -10,6 +10,7 @@ using Beta = BetaLib.Microsoft.Graph;
 using Lithnet.Ecma2Framework;
 using Lithnet.MetadirectoryServices;
 using Microsoft.Graph;
+using Newtonsoft.Json;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 {
@@ -108,6 +109,17 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             Assert.IsTrue(team.IsArchived ?? false);
         }
+
+        [TestMethod]
+        public void Test2()
+        {
+            string data = "{\"displayName\":\"Skooler Course 9\",\"description\":\"Skooler Course 9\",\"internalId\":\"19:5b2451b216ee441d9ccd4e9796dc5706@thread.tacv2\",\"webUrl\":\"https://teams.microsoft.com/l/team/19:5b2451b216ee441d9ccd4e9796dc5706%40thread.tacv2/conversations?groupId=66b905a1-373b-4eb4-91a0-32437bd9aad3&tenantId=6f5e89b0-25f9-4350-88aa-f398e5567ec9\",\"memberSettings\":{\"allowCreateUpdateChannels\":false,\"allowDeleteChannels\":false,\"allowAddRemoveApps\":false,\"allowCreateUpdateRemoveTabs\":false,\"allowCreateUpdateRemoveConnectors\":false,\"@odata.type\":\"microsoft.graph.teamMemberSettings\",\"allowCreatePrivateChannels\":false},\"guestSettings\":{\"allowCreateUpdateChannels\":false,\"allowDeleteChannels\":false,\"@odata.type\":\"microsoft.graph.teamGuestSettings\"},\"messagingSettings\":{\"allowUserEditMessages\":true,\"allowUserDeleteMessages\":true,\"allowOwnerDeleteMessages\":true,\"allowTeamMentions\":true,\"allowChannelMentions\":true,\"@odata.type\":\"microsoft.graph.teamMessagingSettings\"},\"funSettings\":{\"allowGiphy\":true,\"giphyContentRating\":\"strict\",\"allowStickersAndMemes\":true,\"allowCustomMemes\":true,\"@odata.type\":\"microsoft.graph.teamFunSettings\"},\"isArchived\":true,\"id\":\"66b905a1-373b-4eb4-91a0-32437bd9aad3\",\"@odata.type\":\"microsoft.graph.team\",\"@odata.context\":\"https://graph.microsoft.com/beta/$metadata#teams/$entity\",\"createdDateTime\":null,\"isMembershipLimitedToOwners\":false,\"discoverySettings\":{\"showInTeamsSearchAndSuggestions\":false},\"classSettings\":{\"@odata.type\":\"#microsoft.graph.teamClassSettings\",\"notifyGuardiansAboutAssignments\":false},\"responseHeaders\":{\"Vary\":[\"Accept-Encoding\"],\"request-id\":[\"30c941cf-d79a-4615-bd37-77785e230ebb\"],\"client-request-id\":[\"30c941cf-d79a-4615-bd37-77785e230ebb\"],\"x-ms-ags-diagnostic\":[\"{\\\"ServerInfo\\\":{\\\"DataCenter\\\":\\\"Australia Southeast\\\",\\\"Slice\\\":\\\"SliceC\\\",\\\"Ring\\\":\\\"4\\\",\\\"ScaleUnit\\\":\\\"002\\\",\\\"RoleInstance\\\":\\\"AGSFE_IN_4\\\"}}\"],\"OData-Version\":[\"4.0\"],\"Strict-Transport-Security\":[\"max-age=31536000\"],\"Cache-Control\":[\"private\"],\"Date\":[\"Thu, 03 Sep 2020 06:40:33 GMT\"]},\"statusCode\":\"OK\"}";
+
+            var result = JsonConvert.DeserializeObject<Beta.Team>(data);
+
+            Assert.IsTrue(result.IsArchived.Value);
+        }
+        
 
         [TestMethod]
         public async Task UnarchiveTeam()
