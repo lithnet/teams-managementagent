@@ -26,7 +26,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
         public static GraphServiceClient Client { get; }
 
-        public static Beta.GraphServiceClient BetaClient { get; }
+        public static  BetaLib::Microsoft.Graph.GraphServiceClient BetaClient { get; }
 
         public static KeyedCollection<string, ConfigParameter> ConfigParameters { get; }
 

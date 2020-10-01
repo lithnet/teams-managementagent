@@ -23,7 +23,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private GraphServiceClient client;
 
-        private Beta.GraphServiceClient betaClient;
+        private  BetaLib::Microsoft.Graph.GraphServiceClient betaClient;
 
         private CancellationToken token;
 
@@ -42,7 +42,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             try
             {
-                BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions { CancellationToken = this.token });
+                BufferBlock< BetaLib::Microsoft.Graph.Group> groupQueue = new BufferBlock< BetaLib::Microsoft.Graph.Group>(new DataflowBlockOptions { CancellationToken = this.token });
 
                 Task consumerTask = this.ConsumeQueue(type, groupQueue);
 
@@ -57,7 +57,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task ProduceObjects(ITargetBlock<Beta.Group> target)
+        private async Task ProduceObjects(ITargetBlock< BetaLib::Microsoft.Graph.Group> target)
         {
             await GraphHelperGroups.GetGroups(this.betaClient, target, this.context.ConfigParameters[ConfigParameterNames.FilterQuery].Value,this.token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
             target.Complete();
@@ -106,7 +106,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             target.Complete();
         }
 
-        private async Task ConsumeQueue(SchemaType type, ISourceBlock<Beta.Group> source)
+        private async Task ConsumeQueue(SchemaType type, ISourceBlock< BetaLib::Microsoft.Graph.Group> source)
         {
             var edfo = new ExecutionDataflowBlockOptions
             {
@@ -114,7 +114,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 CancellationToken = this.token,
             };
 
-            ActionBlock<Beta.Group> action = new ActionBlock<Beta.Group>(async group =>
+            ActionBlock< BetaLib::Microsoft.Graph.Group> action = new ActionBlock< BetaLib::Microsoft.Graph.Group>(async group =>
             {
                 try
                 {
@@ -150,7 +150,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await action.Completion;
         }
 
-        private bool ShouldFilterDelta(Beta.Group group)
+        private bool ShouldFilterDelta( BetaLib::Microsoft.Graph.Group group)
         {
             string filter = this.context.ConfigParameters[ConfigParameterNames.FilterQuery].Value;
 
@@ -192,7 +192,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return false;
         }
 
-        private CSEntryChange GroupToCSEntryChange(Beta.Group group, SchemaType schemaType)
+        private CSEntryChange GroupToCSEntryChange( BetaLib::Microsoft.Graph.Group group, SchemaType schemaType)
         {
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "group";

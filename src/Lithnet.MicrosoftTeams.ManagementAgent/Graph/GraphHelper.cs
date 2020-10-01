@@ -319,7 +319,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             e.AdditionalData.Add(name, null);
         }
 
-        public static void AssignNullToProperty(this Beta.Entity e, string name)
+        public static void AssignNullToProperty(this  BetaLib::Microsoft.Graph.Entity e, string name)
         {
             if (e.AdditionalData == null)
             {

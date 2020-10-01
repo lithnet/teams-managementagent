@@ -135,9 +135,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Lithnet.Ecma2Framework">
-      <Version>1.0.7552.22688</Version>
-    </PackageReference>
     <PackageReference Include="Lithnet.MetadirectoryServices">
       <Version>1.0.7438.21872</Version>
     </PackageReference>

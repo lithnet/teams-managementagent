@@ -19,7 +19,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         public GraphServiceClient Client { get; private set; }
 
-        public Beta.GraphServiceClient BetaClient { get; private set; }
+        public  BetaLib::Microsoft.Graph.GraphServiceClient BetaClient { get; private set; }
 
         internal UserFilter UserFilter { get; private set; }
 
@@ -44,7 +44,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             };
 
             var client = new GraphServiceClient(authProvider);
-            var betaClient = new Beta.GraphServiceClient(authProvider);
+            var betaClient = new  BetaLib::Microsoft.Graph.GraphServiceClient(authProvider);
 
             return new GraphConnectionContext()
             {

@@ -26,7 +26,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private GraphServiceClient client;
 
-        private Beta.GraphServiceClient betaClient;
+        private  BetaLib::Microsoft.Graph.GraphServiceClient betaClient;
 
         private CancellationToken token;
 
@@ -50,7 +50,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     return;
                 }
 
-                BufferBlock<Beta.Group> groupQueue = new BufferBlock<Beta.Group>(new DataflowBlockOptions { CancellationToken = this.token });
+                BufferBlock< BetaLib::Microsoft.Graph.Group> groupQueue = new BufferBlock< BetaLib::Microsoft.Graph.Group>(new DataflowBlockOptions { CancellationToken = this.token });
 
                 Task consumerTask = this.ConsumeQueue(type, groupQueue);
 
@@ -65,7 +65,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private async Task ProduceObjects(ITargetBlock<Beta.Group> target)
+        private async Task ProduceObjects(ITargetBlock< BetaLib::Microsoft.Graph.Group> target)
         {
             var client = ((GraphConnectionContext)this.context.ConnectionContext).BetaClient;
             await GraphHelperGroups.GetGroups(client, target, this.context.ConfigParameters[ConfigParameterNames.FilterQuery].Value, this.token, "displayName", "resourceProvisioningOptions", "id", "mailNickname", "description", "visibility");
@@ -116,7 +116,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             target.Complete();
         }
 
-        private async Task ConsumeQueue(SchemaType type, ISourceBlock<Beta.Group> source)
+        private async Task ConsumeQueue(SchemaType type, ISourceBlock< BetaLib::Microsoft.Graph.Group> source)
         {
             var edfo = new ExecutionDataflowBlockOptions
             {
@@ -124,7 +124,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 CancellationToken = this.token,
             };
 
-            ActionBlock<Beta.Group> action = new ActionBlock<Beta.Group>(async group =>
+            ActionBlock< BetaLib::Microsoft.Graph.Group> action = new ActionBlock< BetaLib::Microsoft.Graph.Group>(async group =>
             {
                 try
                 {
@@ -160,7 +160,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await action.Completion;
         }
 
-        private bool ShouldFilterDelta(Beta.Group group)
+        private bool ShouldFilterDelta( BetaLib::Microsoft.Graph.Group group)
         {
             string filter = this.context.ConfigParameters[ConfigParameterNames.FilterQuery].Value;
 
@@ -202,7 +202,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return false;
         }
 
-        private CSEntryChange GroupToCSEntryChange(Beta.Group group, SchemaType schemaType)
+        private CSEntryChange GroupToCSEntryChange( BetaLib::Microsoft.Graph.Group group, SchemaType schemaType)
         {
             CSEntryChange c = CSEntryChange.Create();
             c.ObjectType = "team";
@@ -324,14 +324,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 if (channel.MembershipType.HasValue)
                 {
-                    if (channel.MembershipType == Beta.ChannelMembershipType.UnknownFutureValue)
+                    if (channel.MembershipType ==  BetaLib::Microsoft.Graph.ChannelMembershipType.UnknownFutureValue)
                     {
                         logger.Warn($"Ignoring unknown channel {channel.Id} of unknown type");
                         continue;
                     }
                     else
                     {
-                        objectType = channel.MembershipType == Beta.ChannelMembershipType.Standard ? "publicChannel" : "privateChannel";
+                        objectType = channel.MembershipType ==  BetaLib::Microsoft.Graph.ChannelMembershipType.Standard ? "publicChannel" : "privateChannel";
                     }
                 }
                 else
@@ -389,20 +389,20 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     c.CreateAttributeAdd("isFavoriteByDefault", channel.IsFavoriteByDefault ?? false);
                 }
 
-                if (channel.MembershipType == Beta.ChannelMembershipType.Private && (schemaType.HasAttribute("member") || schemaType.HasAttribute("owner")))
+                if (channel.MembershipType ==  BetaLib::Microsoft.Graph.ChannelMembershipType.Private && (schemaType.HasAttribute("member") || schemaType.HasAttribute("owner")))
                 {
-                    List<Beta.AadUserConversationMember> members = await GraphHelperTeams.GetChannelMembers(this.betaClient, groupid, channel.Id, this.token);
+                    List< BetaLib::Microsoft.Graph.AadUserConversationMember> members = await GraphHelperTeams.GetChannelMembers(this.betaClient, groupid, channel.Id, this.token);
 
                     if (members.Count > 0)
                     {
                         List<object> memberList = new List<object>();
                         List<object> ownerList = new List<object>();
 
-                        foreach (Beta.ConversationMember member in members)
+                        foreach ( BetaLib::Microsoft.Graph.ConversationMember member in members)
                         {
                             string memberValue;
 
-                            if (member is Beta.AadUserConversationMember conMember)
+                            if (member is  BetaLib::Microsoft.Graph.AadUserConversationMember conMember)
                             {
                                 memberValue = conMember.UserId;
                             }

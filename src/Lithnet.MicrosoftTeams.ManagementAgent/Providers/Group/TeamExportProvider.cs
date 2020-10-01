@@ -5,7 +5,6 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Beta = BetaLib.Microsoft.Graph;
 using Lithnet.Ecma2Framework;
 using Lithnet.MetadirectoryServices;
 using Microsoft.MetadirectoryServices;
@@ -23,15 +22,15 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private GraphServiceClient client;
 
-        private Beta.GraphServiceClient betaClient;
+        private BetaLib::Microsoft.Graph.GraphServiceClient betaClient;
 
         private CancellationToken token;
 
         private UserFilter userFilter;
 
-        public static Beta.Team round1;
+        public static BetaLib::Microsoft.Graph.Team round1;
 
-        public static Beta.Team round2;
+        public static BetaLib::Microsoft.Graph.Team round2;
 
 
         public void Initialize(IExportContext context)
@@ -136,14 +135,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return CSEntryChangeResult.Create(csentry.Identifier, anchorChanges, MAExportError.Success);
         }
 
-        private async Task<string> CreateTeam(CSEntryChange csentry, Beta.GraphServiceClient client, string ownerId)
+        private async Task<string> CreateTeam(CSEntryChange csentry, BetaLib::Microsoft.Graph.GraphServiceClient client, string ownerId)
         {
-            var team = new Beta.Team
+            var team = new BetaLib::Microsoft.Graph.Team
             {
-                MemberSettings = new Beta.TeamMemberSettings(),
-                GuestSettings = new Beta.TeamGuestSettings(),
-                MessagingSettings = new Beta.TeamMessagingSettings(),
-                FunSettings = new Beta.TeamFunSettings(),
+                MemberSettings = new BetaLib::Microsoft.Graph.TeamMemberSettings(),
+                GuestSettings = new BetaLib::Microsoft.Graph.TeamGuestSettings(),
+                MessagingSettings = new BetaLib::Microsoft.Graph.TeamMessagingSettings(),
+                FunSettings = new BetaLib::Microsoft.Graph.TeamFunSettings(),
                 ODataType = null
             };
 
@@ -159,13 +158,13 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 string visibility = csentry.GetValueAdd<string>("visibility");
 
-                if (Enum.TryParse(visibility, out Beta.TeamVisibilityType result))
+                if (Enum.TryParse(visibility, out BetaLib::Microsoft.Graph.TeamVisibilityType result))
                 {
                     team.Visibility = result;
                 }
                 else
                 {
-                    throw new UnsupportedAttributeModificationException($"The value '{visibility}' provided for attribute 'visibility' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(Beta.TeamVisibilityType)))}");
+                    throw new UnsupportedAttributeModificationException($"The value '{visibility}' provided for attribute 'visibility' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(BetaLib::Microsoft.Graph.TeamVisibilityType)))}");
                 }
             }
 
@@ -198,9 +197,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             string gcr = csentry.GetValueAdd<string>("funSettings_giphyContentRating");
             if (!string.IsNullOrWhiteSpace(gcr))
             {
-                if (!Enum.TryParse(gcr, false, out Beta.GiphyRatingType grt))
+                if (!Enum.TryParse(gcr, false, out BetaLib::Microsoft.Graph.GiphyRatingType grt))
                 {
-                    throw new UnsupportedAttributeModificationException($"The value '{gcr}' provided for attribute 'funSettings_giphyContentRating' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(Beta.GiphyRatingType)))}");
+                    throw new UnsupportedAttributeModificationException($"The value '{gcr}' provided for attribute 'funSettings_giphyContentRating' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(BetaLib::Microsoft.Graph.GiphyRatingType)))}");
                 }
 
                 team.FunSettings.GiphyContentRating = grt;
@@ -305,12 +304,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
                 // This nonsense is needed because the isArchived bool property is not deserialized properly on the first trip. The raw json says its true, but the backing property says false
                 // but for some reason serializing it again shows the correct value.
-                //Beta.Team at = JsonConvert.DeserializeObject<Beta.Team>(JsonConvert.SerializeObject(await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token)));
+                // BetaLib::Microsoft.Graph.Team at = JsonConvert.DeserializeObject< BetaLib::Microsoft.Graph.Team>(JsonConvert.SerializeObject(await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token)));
 
                 round1 = await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token);
                 logger.Trace($"Round 1: {round1.IsArchived}");
 
-                round2 = JsonConvert.DeserializeObject<Beta.Team>(JsonConvert.SerializeObject(round1));
+                round2 = JsonConvert.DeserializeObject<BetaLib::Microsoft.Graph.Team>(JsonConvert.SerializeObject(round1));
                 logger.Trace($"Round 2: {round2.IsArchived}");
 
                  
@@ -474,7 +473,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     string value = change.GetValueAdd<string>();
                     if (!Enum.TryParse<GiphyRatingType>(value, false, out GiphyRatingType result))
                     {
-                        throw new UnsupportedAttributeModificationException($"The value '{result}' provided for attribute 'funSettings_giphyContentRating' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(Beta.GiphyRatingType)))}");
+                        throw new UnsupportedAttributeModificationException($"The value '{result}' provided for attribute 'funSettings_giphyContentRating' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(BetaLib::Microsoft.Graph.GiphyRatingType)))}");
                     }
 
                     team.FunSettings.GiphyContentRating = result;

@@ -75,7 +75,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
             string channelid = channelResult.GetAnchorValueOrDefault<string>("id");
             Assert.IsTrue(channelResult.ErrorCode == MAExportError.Success);
 
-            Beta.Channel newChannel = await GetChannelFromTeam(teamid, channelid);
+             BetaLib::Microsoft.Graph.Channel newChannel = await GetChannelFromTeam(teamid, channelid);
 
             Assert.AreEqual("my test channel", newChannel.DisplayName);
             Assert.AreEqual("my description", newChannel.Description);
@@ -112,11 +112,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
             string channelid = channelResult.GetAnchorValueOrDefault<string>("id");
             Assert.IsTrue(channelResult.ErrorCode == MAExportError.Success);
 
-            Beta.Channel newChannel = await GetChannelFromTeam(teamid, channelid);
+             BetaLib::Microsoft.Graph.Channel newChannel = await GetChannelFromTeam(teamid, channelid);
 
             Assert.AreEqual("my test channel", newChannel.DisplayName);
             Assert.AreEqual("my description", newChannel.Description);
-            Assert.AreEqual(Beta.ChannelMembershipType.Private, newChannel.MembershipType);
+            Assert.AreEqual( BetaLib::Microsoft.Graph.ChannelMembershipType.Private, newChannel.MembershipType);
 
             var members = await GraphHelperTeams.GetChannelMembers(UnitTestControl.BetaClient, teamid, channelid, CancellationToken.None);
 
@@ -147,9 +147,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
             return teamResult.GetAnchorValueOrDefault<string>("id");
         }
 
-        private static async Task<Beta.Channel> GetChannelFromTeam(string teamid, string channelid)
+        private static async Task< BetaLib::Microsoft.Graph.Channel> GetChannelFromTeam(string teamid, string channelid)
         {
-            List<Beta.Channel> channels = await GraphHelperTeams.GetChannels(UnitTestControl.BetaClient, teamid, CancellationToken.None);
+            List< BetaLib::Microsoft.Graph.Channel> channels = await GraphHelperTeams.GetChannels(UnitTestControl.BetaClient, teamid, CancellationToken.None);
             return channels.First(t => t.Id == channelid);
         }
 

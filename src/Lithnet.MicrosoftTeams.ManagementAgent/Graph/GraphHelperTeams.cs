@@ -6,7 +6,6 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Beta = BetaLib.Microsoft.Graph;
 using Microsoft.Graph;
 using Newtonsoft.Json;
 using NLog;
@@ -23,24 +22,24 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().GetAsync(token), token, 0);
         }
 
-        public static async Task<Beta.Team> GetTeam(Beta.GraphServiceClient client, string teamid, CancellationToken token)
+        public static async Task<BetaLib::Microsoft.Graph.Team> GetTeam(BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, CancellationToken token)
         {
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().GetAsync(token), token, 0);
         }
 
-        public static async Task ArchiveTeam(Beta.GraphServiceClient client, string teamid, bool setSpoReadOnly, CancellationToken token)
+        public static async Task ArchiveTeam(BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, bool setSpoReadOnly, CancellationToken token)
         {
             await GraphHelperTeams.SubmitTeamArchiveRequestAndWait(client, teamid, setSpoReadOnly, token);
         }
 
-        public static async Task UnarchiveTeam(Beta.GraphServiceClient client, string teamid, CancellationToken token)
+        public static async Task UnarchiveTeam(BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, CancellationToken token)
         {
             await GraphHelperTeams.SubmitTeamUnarchiveRequestAndWait(client, teamid, token);
         }
 
-        public static async Task<List<Beta.Channel>> GetChannels(Beta.GraphServiceClient client, string teamid, CancellationToken token)
+        public static async Task<List<BetaLib::Microsoft.Graph.Channel>> GetChannels(BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, CancellationToken token)
         {
-            List<Beta.Channel> channels = new List<Beta.Channel>();
+            List<BetaLib::Microsoft.Graph.Channel> channels = new List<BetaLib::Microsoft.Graph.Channel>();
 
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels.Request().GetAsync(token), token, 0);
 
@@ -59,28 +58,28 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return channels;
         }
 
-        public static async Task<List<Beta.AadUserConversationMember>> GetChannelMembers(Beta.GraphServiceClient client, string groupId, string channelId, CancellationToken token)
+        public static async Task<List<BetaLib::Microsoft.Graph.AadUserConversationMember>> GetChannelMembers(BetaLib::Microsoft.Graph.GraphServiceClient client, string groupId, string channelId, CancellationToken token)
         {
-            List<Beta.AadUserConversationMember> members = new List<Beta.AadUserConversationMember>();
+            List<BetaLib::Microsoft.Graph.AadUserConversationMember> members = new List<BetaLib::Microsoft.Graph.AadUserConversationMember>();
 
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[groupId].Channels[channelId].Members.Request().GetAsync(token), token, 0);
 
             if (page?.Count > 0)
             {
-                members.AddRange(page.CurrentPage.Where(t => t is Beta.AadUserConversationMember && (t.Roles == null || t.Roles.Any(u => !string.Equals(u, "guest", StringComparison.OrdinalIgnoreCase)))).Cast<Beta.AadUserConversationMember>());
+                members.AddRange(page.CurrentPage.Where(t => t is BetaLib::Microsoft.Graph.AadUserConversationMember && (t.Roles == null || t.Roles.Any(u => !string.Equals(u, "guest", StringComparison.OrdinalIgnoreCase)))).Cast<BetaLib::Microsoft.Graph.AadUserConversationMember>());
 
                 while (page.NextPageRequest != null)
                 {
                     page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
-                    members.AddRange(page.CurrentPage.Where(t => t is Beta.AadUserConversationMember && (t.Roles == null || t.Roles.Any(u => !string.Equals(u, "guest", StringComparison.OrdinalIgnoreCase)))).Cast<Beta.AadUserConversationMember>());
+                    members.AddRange(page.CurrentPage.Where(t => t is BetaLib::Microsoft.Graph.AadUserConversationMember && (t.Roles == null || t.Roles.Any(u => !string.Equals(u, "guest", StringComparison.OrdinalIgnoreCase)))).Cast<BetaLib::Microsoft.Graph.AadUserConversationMember>());
                 }
             }
 
             return members;
         }
 
-        public static async Task AddChannelMembers(Beta.GraphServiceClient client, string teamid, string channelid, IList<Beta.AadUserConversationMember> members, bool ignoreMemberExists, CancellationToken token)
+        public static async Task AddChannelMembers(BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, string channelid, IList<BetaLib::Microsoft.Graph.AadUserConversationMember> members, bool ignoreMemberExists, CancellationToken token)
         {
             if (members.Count == 0)
             {
@@ -101,7 +100,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await GraphHelper.SubmitAsBatches(client, requests, false, ignoreMemberExists, token);
         }
 
-        public static async Task UpdateChannelMembers(Beta.GraphServiceClient client, string teamid, string channelid, IList<Beta.AadUserConversationMember> members, CancellationToken token)
+        public static async Task UpdateChannelMembers(BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, string channelid, IList<BetaLib::Microsoft.Graph.AadUserConversationMember> members, CancellationToken token)
         {
             if (members.Count == 0)
             {
@@ -120,7 +119,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await GraphHelper.SubmitAsBatches(client, requests, false, false, token);
         }
 
-        public static async Task RemoveChannelMembers(Beta.GraphServiceClient client, string teamid, string channelid, IList<Beta.AadUserConversationMember> members, bool ignoreNotFound, CancellationToken token)
+        public static async Task RemoveChannelMembers(BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, string channelid, IList<BetaLib::Microsoft.Graph.AadUserConversationMember> members, bool ignoreNotFound, CancellationToken token)
         {
             if (members.Count == 0)
             {
@@ -143,17 +142,17 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Team.Request().PutAsync(team, token), token, 1);
         }
 
-        public static async Task<Beta.Channel> CreateChannel(Beta.GraphServiceClient client, string teamid, Beta.Channel channel, CancellationToken token)
+        public static async Task< BetaLib::Microsoft.Graph.Channel> CreateChannel( BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid,  BetaLib::Microsoft.Graph.Channel channel, CancellationToken token)
         {
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels.Request().AddAsync(channel, token), token, 1);
         }
 
-        public static async Task<Beta.Channel> UpdateChannel(Beta.GraphServiceClient client, string teamid, string channelid, Beta.Channel channel, CancellationToken token)
+        public static async Task< BetaLib::Microsoft.Graph.Channel> UpdateChannel( BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, string channelid,  BetaLib::Microsoft.Graph.Channel channel, CancellationToken token)
         {
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels[channelid].Request().UpdateAsync(channel, token), token, 1);
         }
 
-        public static async Task<string> CreateTeam(Beta.GraphServiceClient client, Beta.Team team, CancellationToken token)
+        public static async Task<string> CreateTeam( BetaLib::Microsoft.Graph.GraphServiceClient client,  BetaLib::Microsoft.Graph.Team team, CancellationToken token)
         {
             TeamsAsyncOperation result = await GraphHelperTeams.SubmitTeamCreateRequestAndWait(client, team, token);
 
@@ -172,7 +171,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().UpdateAsync(team, token), token, 1);
         }
-        private static async Task<TeamsAsyncOperation> SubmitTeamUnarchiveRequestAndWait(Beta.GraphServiceClient client, string teamid, CancellationToken token)
+        private static async Task<TeamsAsyncOperation> SubmitTeamUnarchiveRequestAndWait( BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, CancellationToken token)
         {
             string location = await GraphHelper.ExecuteWithRetryAndRateLimit(async () =>
             {
@@ -186,7 +185,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await AsyncRequestWait(client, token, location);
         }
 
-        private static async Task<TeamsAsyncOperation> SubmitTeamArchiveRequestAndWait(Beta.GraphServiceClient client, string teamid, bool? setSpoSiteReadOnly, CancellationToken token)
+        private static async Task<TeamsAsyncOperation> SubmitTeamArchiveRequestAndWait( BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, bool? setSpoSiteReadOnly, CancellationToken token)
         {
             string location = await GraphHelper.ExecuteWithRetryAndRateLimit(async () =>
             {
@@ -209,7 +208,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await AsyncRequestWait(client, token, location);
         }
 
-        private static async Task<TeamsAsyncOperation> SubmitTeamCreateRequestAndWait(Beta.GraphServiceClient client, Beta.Team team, CancellationToken token)
+        private static async Task<TeamsAsyncOperation> SubmitTeamCreateRequestAndWait( BetaLib::Microsoft.Graph.GraphServiceClient client,  BetaLib::Microsoft.Graph.Team team, CancellationToken token)
         {
             string location = await GraphHelper.ExecuteWithRetryAndRateLimit(async () =>
             {
@@ -223,7 +222,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await AsyncRequestWait(client, token, location);
         }
 
-        private static async Task<string> AsyncRequestSubmit(Beta.GraphServiceClient client, HttpRequestMessage message, CancellationToken token)
+        private static async Task<string> AsyncRequestSubmit( BetaLib::Microsoft.Graph.GraphServiceClient client, HttpRequestMessage message, CancellationToken token)
         {
             using (var response = await client.HttpProvider.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token))
             {
@@ -246,7 +245,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             }
         }
 
-        private static async Task<TeamsAsyncOperation> AsyncRequestWait(Beta.GraphServiceClient client, CancellationToken token, string location)
+        private static async Task<TeamsAsyncOperation> AsyncRequestWait( BetaLib::Microsoft.Graph.GraphServiceClient client, CancellationToken token, string location)
         {
             TeamsAsyncOperation result;
             int waitCount = 1;
@@ -265,24 +264,24 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return result;
         }
 
-        public static async Task DeleteChannel(Beta.GraphServiceClient client, string teamid, string channelid, CancellationToken token)
+        public static async Task DeleteChannel( BetaLib::Microsoft.Graph.GraphServiceClient client, string teamid, string channelid, CancellationToken token)
         {
             await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Channels[channelid].Request().DeleteAsync(token), token, 1);
         }
 
-        internal static Beta.AadUserConversationMember CreateAadUserConversationMember(string id)
+        internal static  BetaLib::Microsoft.Graph.AadUserConversationMember CreateAadUserConversationMember(string id)
         {
             return CreateAadUserConversationMember(id, (string[])null);
         }
 
-        internal static Beta.AadUserConversationMember CreateAadUserConversationMember(string id, string role)
+        internal static  BetaLib::Microsoft.Graph.AadUserConversationMember CreateAadUserConversationMember(string id, string role)
         {
             return CreateAadUserConversationMember(id, role == null ? null : new string[] { role });
         }
 
-        internal static Beta.AadUserConversationMember CreateAadUserConversationMember(string id, string[] roles)
+        internal static  BetaLib::Microsoft.Graph.AadUserConversationMember CreateAadUserConversationMember(string id, string[] roles)
         {
-            Beta.AadUserConversationMember user = new Beta.AadUserConversationMember();
+             BetaLib::Microsoft.Graph.AadUserConversationMember user = new  BetaLib::Microsoft.Graph.AadUserConversationMember();
 
             user.UserId = id;
             user.Id = id;

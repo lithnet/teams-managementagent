@@ -174,8 +174,8 @@
     <PackageReference Include="ILRepack">
       <Version>2.0.18</Version>
     </PackageReference>
-    <PackageReference Include="Lithnet.Ecma2Framework">
-      <Version>1.0.7552.22688</Version>
+    <PackageReference Include="lithnet.Ecma2Framework">
+      <Version>1.0.7579.21044</Version>
     </PackageReference>
     <PackageReference Include="Lithnet.MetadirectoryServices">
       <Version>1.0.7438.21872</Version>
@@ -232,8 +232,8 @@
     <PostBuildEvent>if not $(ConfigurationName) == UnitTesting (
 
 if not exist "$(TargetDir)merged" mkdir "$(TargetDir)merged"
-$(SolutionDir)\packages\ILRepack.2.0.18\tools\ILRepack.exe /targetplatform:"v4,C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0" /out:$(TargetDir)merged\$(TargetName).dll $(TargetDir)$(TargetName).dll Lithnet.Ecma2Framework.dll
-REM $(SolutionDir)\packages\ILRepack.2.0.18\tools\ILRepack.exe /targetplatform:"v4,C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0" /lib:D:\github\lithnet\okta-managementagent\src\packages\Newtonsoft.Json.11.0.2\lib\net45\ /out:$(TargetDir)merged\$(TargetName).dll $(TargetDir)$(TargetName).dll Lithnet.Ecma2Framework.dll
+$(SolutionDir)\packages\ILRepack.2.0.18\tools\ILRepack.exe /targetplatform:"v4,C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0" /wildcards /out:$(TargetDir)merged\$(TargetName).dll $(TargetDir)$(TargetName).dll
+
 del "$(TargetDir)*" /Q
 move /Y "$(TargetDir)merged\*" "$(TargetDir)"
 rmdir "$(TargetDir)merged"
@@ -243,7 +243,8 @@ rmdir "$(TargetDir)merged"
 "C:\Program Files\Debugging Tools for Windows (x64)\symstore" add /f "$(TargetDir)*.pdb" /s \\localhost\symbols /t "$(ProjectName)" /v "@(VersionNumber)"
 
 Copy "$(TargetDir)\*" "C:\Program Files\Microsoft Forefront Identity Manager\2010\Synchronization Service\Extensions" /y
-)</PostBuildEvent>
+)
+</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PreBuildEvent>del $(ProjectDir)$(ProjectName).PackagedMA.xml /f

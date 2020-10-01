@@ -1,2 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Weavers/>
+<Weavers>
+  <!--<Costura>
+    <ExcludeAssemblies>
+      Lithnet.Ecma2Framework
+    </ExcludeAssemblies>
+  </Costura>-->
+</Weavers>

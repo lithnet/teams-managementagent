@@ -162,7 +162,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await GraphHelper.SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
-        public static async Task GetGroups(Beta.GraphServiceClient client, ITargetBlock<Beta.Group> target, string filter, CancellationToken token, params string[] selectProperties)
+        public static async Task GetGroups( BetaLib::Microsoft.Graph.GraphServiceClient client, ITargetBlock< BetaLib::Microsoft.Graph.Group> target, string filter, CancellationToken token, params string[] selectProperties)
         {
             string constructedFilter = "resourceProvisioningOptions/Any(x:x eq 'Team')";
 
@@ -229,11 +229,11 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             return await GetGroups(page, target, token);
         }
 
-        private static async Task GetGroups(Beta.IGraphServiceGroupsCollectionRequest request, ITargetBlock<Beta.Group> target, CancellationToken token)
+        private static async Task GetGroups( BetaLib::Microsoft.Graph.IGraphServiceGroupsCollectionRequest request, ITargetBlock< BetaLib::Microsoft.Graph.Group> target, CancellationToken token)
         {
             var page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await request.GetAsync(token), token, 0);
 
-            foreach (Beta.Group group in page.CurrentPage)
+            foreach ( BetaLib::Microsoft.Graph.Group group in page.CurrentPage)
             {
                 target.Post(group);
             }
@@ -242,7 +242,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 page = await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await page.NextPageRequest.GetAsync(token), token, 0);
 
-                foreach (Beta.Group group in page.CurrentPage)
+                foreach ( BetaLib::Microsoft.Graph.Group group in page.CurrentPage)
                 {
                     target.Post(group);
                 }

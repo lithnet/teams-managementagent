@@ -23,7 +23,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private GraphServiceClient client;
 
-        private Beta.GraphServiceClient betaClient;
+        private  BetaLib::Microsoft.Graph.GraphServiceClient betaClient;
 
         private CancellationToken token;
 
@@ -76,7 +76,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 if (this.context.ConfigParameters[ConfigParameterNames.RandomizeChannelNameOnDelete].Value == "1")
                 {
                     string newname = $"deleted-{Guid.NewGuid():N}";
-                    Beta.Channel c = new Beta.Channel();
+                     BetaLib::Microsoft.Graph.Channel c = new  BetaLib::Microsoft.Graph.Channel();
                     c.DisplayName = newname;
                     await GraphHelperTeams.UpdateChannel(this.betaClient, teamid, csentry.DN, c, this.token);
                     logger.Info($"Renamed channel {csentry.DN} on team {teamid} to {newname}");
@@ -109,7 +109,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 return CSEntryChangeResult.Create(csentry.Identifier, null, MAExportError.ExportActionRetryReferenceAttribute);
             }
 
-            Beta.Channel c = new Beta.Channel();
+             BetaLib::Microsoft.Graph.Channel c = new  BetaLib::Microsoft.Graph.Channel();
             c.DisplayName = csentry.GetValueAdd<string>("displayName");
             c.Description = csentry.GetValueAdd<string>("description");
 
@@ -125,7 +125,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 }
 
                 string ownerID = csentry.GetValueAdds<string>("owner").First();
-                c.MembershipType = Beta.ChannelMembershipType.Private;
+                c.MembershipType =  BetaLib::Microsoft.Graph.ChannelMembershipType.Private;
                 c.AdditionalData = new Dictionary<string, object>();
                 c.AdditionalData.Add("members", new[] { GraphHelperTeams.CreateAadUserConversationMember(ownerID, "owner") });
             }
@@ -160,7 +160,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             string channelid = csentry.GetAnchorValueOrDefault<string>("id");
 
             bool changed = false;
-            Beta.Channel channel = new Beta.Channel();
+             BetaLib::Microsoft.Graph.Channel channel = new  BetaLib::Microsoft.Graph.Channel();
 
             foreach (AttributeChange change in csentry.AttributeChanges)
             {
@@ -269,9 +269,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 ownerDeletes.Remove(m);
             }
 
-            List<Beta.AadUserConversationMember> cmToAdd = new List<Beta.AadUserConversationMember>();
-            List<Beta.AadUserConversationMember> cmToDelete = new List<Beta.AadUserConversationMember>();
-            List<Beta.AadUserConversationMember> cmToUpdate = new List<Beta.AadUserConversationMember>();
+            List< BetaLib::Microsoft.Graph.AadUserConversationMember> cmToAdd = new List< BetaLib::Microsoft.Graph.AadUserConversationMember>();
+            List< BetaLib::Microsoft.Graph.AadUserConversationMember> cmToDelete = new List< BetaLib::Microsoft.Graph.AadUserConversationMember>();
+            List< BetaLib::Microsoft.Graph.AadUserConversationMember> cmToUpdate = new List< BetaLib::Microsoft.Graph.AadUserConversationMember>();
 
             foreach (var m in memberDeletes)
             {
