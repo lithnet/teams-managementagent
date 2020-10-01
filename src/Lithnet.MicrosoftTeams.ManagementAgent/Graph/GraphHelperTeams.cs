@@ -18,10 +18,10 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        public static async Task<Team> GetTeam(GraphServiceClient client, string teamid, CancellationToken token)
-        {
-            return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().GetAsync(token), token, 0);
-        }
+        //public static async Task<Team> GetTeam(GraphServiceClient client, string teamid, CancellationToken token)
+        //{
+        //    return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().GetAsync(token), token, 0);
+        //}
 
         public static async Task<Beta.Team> GetTeam(Beta.GraphServiceClient client, string teamid, CancellationToken token)
         {
@@ -138,7 +138,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             await GraphHelper.SubmitAsBatches(client, requests, ignoreNotFound, false, token);
         }
 
-        public static async Task<Team> CreateTeamFromGroup(GraphServiceClient client, string groupid, Team team, CancellationToken token)
+        public static async Task<Beta.Team> CreateTeamFromGroup(Beta.GraphServiceClient client, string groupid, Beta.Team team, CancellationToken token)
         {
             return await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Groups[groupid].Team.Request().PutAsync(team, token), token, 1);
         }
@@ -168,7 +168,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             throw new ServiceException(new Error() { Code = result.Error.Code, AdditionalData = result.Error.AdditionalData, Message = result.Error.Message });
         }
 
-        public static async Task UpdateTeam(GraphServiceClient client, string teamid, Team team, CancellationToken token)
+        public static async Task UpdateTeam(Beta.GraphServiceClient client, string teamid, Beta.Team team, CancellationToken token)
         {
             await GraphHelper.ExecuteWithRetryAndRateLimit(async () => await client.Teams[teamid].Request().UpdateAsync(team, token), token, 1);
         }

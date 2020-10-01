@@ -462,7 +462,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private async Task TeamToCSEntryChange(CSEntryChange c, SchemaType schemaType)
         {
-            Team team = await GraphHelperTeams.GetTeam(this.client, c.DN, this.token);
+            Beta.Team team = await GraphHelperTeams.GetTeam(this.betaClient, c.DN, this.token);
             
             foreach (SchemaAttribute type in schemaType.Attributes)
             {

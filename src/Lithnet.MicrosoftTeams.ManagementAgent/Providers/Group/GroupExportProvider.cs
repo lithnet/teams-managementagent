@@ -1,4 +1,5 @@
-﻿using System;
+﻿extern alias BetaLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -10,6 +11,7 @@ using Microsoft.Graph;
 using Microsoft.MetadirectoryServices;
 using Newtonsoft.Json;
 using NLog;
+using Beta=BetaLib.Microsoft.Graph;
 
 namespace Lithnet.MicrosoftTeams.ManagementAgent
 {
@@ -23,6 +25,9 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private GraphServiceClient client;
 
+        private Beta.GraphServiceClient betaClient;
+
+
         private CancellationToken token;
 
         private UserFilter userFilter;
@@ -31,6 +36,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             this.context = context;
             this.client = ((GraphConnectionContext)context.ConnectionContext).Client;
+            this.betaClient = ((GraphConnectionContext)context.ConnectionContext).BetaClient;
             this.userFilter = ((GraphConnectionContext)context.ConnectionContext).UserFilter;
             this.token = context.Token;
         }
@@ -124,12 +130,12 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private async Task CreateTeam(CSEntryChange csentry, string groupId)
         {
-            Team team = new Team
+            Beta.Team team = new Beta.Team
             {
-                MemberSettings = new TeamMemberSettings(),
-                GuestSettings = new TeamGuestSettings(),
-                MessagingSettings = new TeamMessagingSettings(),
-                FunSettings = new TeamFunSettings(),
+                MemberSettings = new Beta.TeamMemberSettings(),
+                GuestSettings = new Beta.TeamGuestSettings(),
+                MessagingSettings = new Beta.TeamMessagingSettings(),
+                FunSettings = new Beta.TeamFunSettings(),
                 ODataType = null
             };
 
@@ -167,7 +173,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             string gcr = csentry.GetValueAdd<string>("funSettings_giphyContentRating");
             if (!string.IsNullOrWhiteSpace(gcr))
             {
-                if (!Enum.TryParse(gcr, false, out GiphyRatingType grt))
+                if (!Enum.TryParse(gcr, false, out Beta.GiphyRatingType grt))
                 {
                     throw new UnexpectedDataException($"The value '{gcr}' was not a supported value for funSettings_giphyContentRating. Supported values are (case sensitive) 'Strict' or 'Moderate'");
                 }
@@ -178,7 +184,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             logger.Info($"{csentry.DN}: Creating team for group {groupId} using template {template ?? "standard"}");
             logger.Trace($"{csentry.DN}: Team data: {JsonConvert.SerializeObject(team)}");
 
-            Team tresult = await GraphHelperTeams.CreateTeamFromGroup(this.client, groupId, team, this.token);
+            Beta.Team tresult = await GraphHelperTeams.CreateTeamFromGroup(this.betaClient, groupId, team, this.token);
 
             logger.Info($"{csentry.DN}: Created team {tresult?.Id ?? "<unknown id>"} for group {groupId}");
         }
@@ -326,14 +332,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private async Task PutCSEntryChangeUpdateTeam(CSEntryChange csentry)
         {
-            Team team = new Team();
-            team.MemberSettings = new TeamMemberSettings();
+            Beta.Team team = new Beta.Team();
+            team.MemberSettings = new Beta.TeamMemberSettings();
             team.MemberSettings.ODataType = null;
-            team.GuestSettings = new TeamGuestSettings();
+            team.GuestSettings = new Beta.TeamGuestSettings();
             team.GuestSettings.ODataType = null;
-            team.MessagingSettings = new TeamMessagingSettings();
+            team.MessagingSettings = new Beta.TeamMessagingSettings();
             team.MessagingSettings.ODataType = null;
-            team.FunSettings = new TeamFunSettings();
+            team.FunSettings = new Beta.TeamFunSettings();
             team.FunSettings.ODataType = null;
 
             bool changed = false;
@@ -413,7 +419,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 else if (change.Name == "funSettings_giphyContentRating")
                 {
                     string value = change.GetValueAdd<string>();
-                    if (!Enum.TryParse<GiphyRatingType>(value, false, out GiphyRatingType result))
+                    if (!Enum.TryParse<Beta.GiphyRatingType>(value, false, out Beta.GiphyRatingType result))
                     {
                         throw new UnexpectedDataException($"The value '{value}' was not a supported value for funSettings_giphyContentRating. Supported values are (case sensitive) 'Strict' or 'Moderate'");
                     }
@@ -440,7 +446,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 logger.Trace($"{csentry.DN}:Updating team data: {JsonConvert.SerializeObject(team)}");
 
-                await GraphHelperTeams.UpdateTeam(this.client, csentry.DN, team, this.token);
+                await GraphHelperTeams.UpdateTeam(this.betaClient, csentry.DN, team, this.token);
 
                 logger.Info($"{csentry.DN}: Updated team");
             }

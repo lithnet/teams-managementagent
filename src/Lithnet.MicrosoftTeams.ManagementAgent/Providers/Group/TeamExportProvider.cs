@@ -29,11 +29,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
 
         private UserFilter userFilter;
 
-        public static Beta.Team round1;
-
-        public static Beta.Team round2;
-
-
         public void Initialize(IExportContext context)
         {
             this.context = context;
@@ -303,26 +298,17 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                     throw new UnsupportedBooleanAttributeDeleteException("isArchived");
                 }
 
-                // This nonsense is needed because the isArchived bool property is not deserialized properly on the first trip. The raw json says its true, but the backing property says false
-                // but for some reason serializing it again shows the correct value.
-                //Beta.Team at = JsonConvert.DeserializeObject<Beta.Team>(JsonConvert.SerializeObject(await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token)));
-
-                round1 = await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token);
-                logger.Trace($"Round 1: {round1.IsArchived}");
-
-                round2 = JsonConvert.DeserializeObject<Beta.Team>(JsonConvert.SerializeObject(round1));
-                logger.Trace($"Round 2: {round2.IsArchived}");
-
-                 
+                var team = await GraphHelperTeams.GetTeam(this.betaClient, teamid, this.token);
+                
                 bool currentState = false;
 
-                if (round2.IsArchived == null)
+                if (team.IsArchived == null)
                 {
                     logger.Trace("Current archive state value was null");
                 }
                 else
                 {
-                    currentState = round2.IsArchived.Value;
+                    currentState = team.IsArchived.Value;
                 }
 
                 logger.Trace($"Teams current archive state is {currentState}");
@@ -354,9 +340,6 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 logger.Trace("Archive state has not changed");
             }
 
-            throw new BreakHereException();
-
-
             if (unarchive)
             {
                 await this.PutCSEntryChangeUpdateUnarchive(csentry);
@@ -377,14 +360,14 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
         {
             string teamid = csentry.GetAnchorValueOrDefault<string>("id");
 
-            Team team = new Team();
-            team.MemberSettings = new TeamMemberSettings();
+            Beta.Team team = new Beta.Team();
+            team.MemberSettings = new Beta.TeamMemberSettings();
             team.MemberSettings.ODataType = null;
-            team.GuestSettings = new TeamGuestSettings();
+            team.GuestSettings = new Beta.TeamGuestSettings();
             team.GuestSettings.ODataType = null;
-            team.MessagingSettings = new TeamMessagingSettings();
+            team.MessagingSettings = new Beta.TeamMessagingSettings();
             team.MessagingSettings.ODataType = null;
-            team.FunSettings = new TeamFunSettings();
+            team.FunSettings = new Beta.TeamFunSettings();
             team.FunSettings.ODataType = null;
 
             bool changed = false;
@@ -472,7 +455,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
                 else if (change.Name == "funSettings_giphyContentRating")
                 {
                     string value = change.GetValueAdd<string>();
-                    if (!Enum.TryParse<GiphyRatingType>(value, false, out GiphyRatingType result))
+                    if (!Enum.TryParse<Beta.GiphyRatingType>(value, false, out Beta.GiphyRatingType result))
                     {
                         throw new UnsupportedAttributeModificationException($"The value '{result}' provided for attribute 'funSettings_giphyContentRating' was not supported. Allowed values are {string.Join(",", Enum.GetNames(typeof(Beta.GiphyRatingType)))}");
                     }
@@ -499,7 +482,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent
             {
                 logger.Trace($"{csentry.DN}:Updating team data: {JsonConvert.SerializeObject(team)}");
 
-                await GraphHelperTeams.UpdateTeam(this.client, teamid, team, this.token);
+                await GraphHelperTeams.UpdateTeam(this.betaClient, teamid, team, this.token);
 
                 logger.Info($"{csentry.DN}: Updated team");
             }

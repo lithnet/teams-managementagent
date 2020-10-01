@@ -200,7 +200,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             string teamid = await TeamTests.SubmitCSEntryChange(cs);
 
-            var team = await GraphHelperTeams.GetTeam(UnitTestControl.Client, teamid, CancellationToken.None);
+            var team = await GraphHelperTeams.GetTeam(UnitTestControl.BetaClient, teamid, CancellationToken.None);
             var group = await GraphHelperGroups.GetGroup(UnitTestControl.Client, teamid, CancellationToken.None);
 
             Assert.AreEqual("mytestteam", group.DisplayName);
@@ -259,7 +259,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             string teamid = await TeamTests.SubmitCSEntryChange(cs);
 
-            var team = await GraphHelperTeams.GetTeam(UnitTestControl.Client, teamid, CancellationToken.None);
+            var team = await GraphHelperTeams.GetTeam(UnitTestControl.BetaClient, teamid, CancellationToken.None);
             var group = await GraphHelperGroups.GetGroup(UnitTestControl.Client, teamid, CancellationToken.None);
 
             Assert.AreEqual("mytestteam", group.DisplayName);
@@ -312,7 +312,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             string teamid = await TeamTests.SubmitCSEntryChange(cs);
 
-            var team = await GraphHelperTeams.GetTeam(UnitTestControl.Client, teamid, CancellationToken.None);
+            var team = await GraphHelperTeams.GetTeam(UnitTestControl.BetaClient, teamid, CancellationToken.None);
             var group = await GraphHelperGroups.GetGroup(UnitTestControl.Client, teamid, CancellationToken.None);
 
             Assert.AreEqual("mytestteam", group.DisplayName);
@@ -356,7 +356,7 @@ namespace Lithnet.MicrosoftTeams.ManagementAgent.Tests
 
             await TeamTests.SubmitCSEntryChange(cs);
 
-            team = await GraphHelperTeams.GetTeam(UnitTestControl.Client, teamid, CancellationToken.None);
+            team = await GraphHelperTeams.GetTeam(UnitTestControl.BetaClient, teamid, CancellationToken.None);
 
             Assert.AreEqual(true, team.MemberSettings.AllowCreateUpdateChannels);
             Assert.AreEqual(true, team.MemberSettings.AllowDeleteChannels);
